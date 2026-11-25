@@ -1,0 +1,41 @@
+{# -----------------------------------------------------------------------------
+  Tabs macro — Linear-style underline tabs
+  Usage:
+    {% from 'components/tabs.html' import tabs %}
+    {{ tabs(items=[
+      {'label': 'Open', 'href': '#open', 'active': True},
+      {'label': 'Closed', 'href': '#closed'},
+    ]) }}
+
+  Segmented control (pill-style) — use `segment()` instead.
+  ----------------------------------------------------------------------------- #}
+
+{% macro tabs(items=[], cls='') -%}
+  <nav class="tabs {{ cls }}" role="tablist">
+    {% for item in items %}
+      {% set is_active = item.get('active', False) %}
+      <a
+        href="{{ item.get('href', '#') }}"
+        class="tab {% if is_active %}active{% endif %}"
+        role="tab"
+        aria-selected="{{ 'true' if is_active else 'false' }}"
+        {% if item.get('attrs') %}{{ item.attrs | safe }}{% endif %}
+      >{{ item.label }}</a>
+    {% endfor %}
+  </nav>
+{%- endmacro %}
+
+{% macro segment(items=[], cls='') -%}
+  <div class="segment {{ cls }}" role="tablist">
+    {% for item in items %}
+      {% set is_active = item.get('active', False) %}
+      <a
+        href="{{ item.get('href', '#') }}"
+        class="segment-item {% if is_active %}active{% endif %}"
+        role="tab"
+        aria-selected="{{ 'true' if is_active else 'false' }}"
+        {% if item.get('attrs') %}{{ item.attrs | safe }}{% endif %}
+      >{{ item.label }}</a>
+    {% endfor %}
+  </div>
+{%- endmacro %}

@@ -1,0 +1,88 @@
+{% from 'components/alert.html' import alert %}
+{% from 'components/icon.html' import icon %}
+
+{% call alert(variant='info') %}
+  <strong>{{ position['symbol'] }} {{ position['direction'] }}</strong>
+  <span class="text-muted">· Qty {{ position['current_quantity'] }} · Avg entry ₹{{ "%.2f"|format(position['average_entry_price']) }}</span>
+{% endcall %}
+
+<form class="flex flex-col gap-4 mt-4"
+      hx-post="/positions/{{ position['position_id'] }}/manage"
+      hx-target="#manage-result"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      enctype="multipart/form-data">
+
+  <div class="field-group">
+    <label class="field-label">Action <span class="req">*</span></label>
+    <select name="action" id="action-select" class="select" required
+            data-current-quantity="{{ position['current_quantity'] }}">
+      <option value="">Select action…</option>
+      <option value="scale_in">Scale in — add to position</option>
+      <option value="scale_out">Scale out — partial exit</option>
+      <option value="exit_all">Exit all — close position</option>
+    </select>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="field-group">
+      <label class="field-label">Date <span class="req">*</span></label>
+      <input type="text" name="date" class="input datepicker-manage" required value="{{ today }}" placeholder="DD/MM/YYYY">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Time</label>
+      <input type="time" name="time" class="input">
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="field-group">
+      <label class="field-label">Price <span class="req">*</span></label>
+      <input type="number" name="price" class="input" step="0.01" min="0" required placeholder="Execution price">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Quantity <span class="req">*</span></label>
+      <input type="number" name="quantity" id="quantity-input" class="input" step="0.01" min="0" required>
+      <div class="field-help" id="quantity-hint">Max: {{ position['current_quantity'] }}</div>
+    </div>
+  </div>
+
+  <div id="leverage-row" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="display: none;">
+    <div class="field-group">
+      <label class="field-label" data-tooltip="Enter 1 for no leverage. Enter 5 for 5× leverage.">Leverage</label>
+      <input type="number" name="leverage" class="input" step="0.1" min="1" value="{{ "%.1f"|format(position['avg_leverage']) }}">
+      <div class="field-help">Current avg: {{ "%.1f"|format(position['avg_leverage']) }}×</div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Charges / fees</label>
+      <input type="number" name="charges" class="input" step="0.01" min="0" value="0">
+    </div>
+  </div>
+
+  <div id="charges-row" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="display: none;">
+    <div class="field-group">
+      <label class="field-label">Charges / fees</label>
+      <input type="number" name="exit_charges" class="input" step="0.01" min="0" value="0">
+    </div>
+  </div>
+
+  <div class="field-group">
+    <label class="field-label">Notes</label>
+    <textarea name="notes" class="textarea" rows="2" placeholder="Optional notes about this transaction"></textarea>
+  </div>
+
+  <div class="field-group">
+    <label class="field-label flex items-center gap-2">
+      {{ icon('image', size=14) }}Screenshots <span class="text-muted text-xs font-normal">(optional)</span>
+    </label>
+    <input type="file" name="screenshots" class="input" multiple accept="image/*">
+    <div class="field-help">Attach chart screenshots for this execution. JPG, PNG, WebP supported.</div>
+  </div>
+
+  <div id="manage-result"></div>
+
+  <div class="flex justify-end gap-2 pt-2">
+    <button type="button" class="btn btn-ghost" data-action="close-modal" data-modal="managePositionModal">Cancel</button>
+    <button type="submit" class="btn btn-primary">{{ icon('check', size=14) }} Execute</button>
+  </div>
+</form>

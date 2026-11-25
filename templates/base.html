@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OneJournal{% endblock %}</title>
+
+    <!-- Theme bootstrap (pre-paint — no flash) -->
+    <script nonce="{{ csp_nonce }}">
+      (function () {
+        var saved = localStorage.getItem('theme');
+        if (saved === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+
+    <!-- Compiled Tailwind + shadcn-style components -->
+    <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
+
+    <!-- HTMX, Plotly, Flatpickr — self-hosted (offline-capable) -->
+    <script src="{{ url_for('static', filename='js/htmx-1.9.10.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/plotly-2.27.0.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr-4.6.13.min.css') }}">
+    <script src="{{ url_for('static', filename='js/flatpickr-4.6.13.min.js') }}"></script>
+</head>
+<body>
+    {% from 'components/icon.html' import icon %}
+
+    {% set nav_items = [
+      ('/',                  'Dashboard',  'home'),
+      ('/analytics',         'Analytics',  'pie-chart'),
+      ('/compare',           'Compare',    'compare'),
+      ('/all-trades',        'Trades',     'table'),
+      ('/positions',         'Positions',  'briefcase'),
+      ('/portfolio',         'Portfolio',  'wallet'),
+      ('/manage-strategies', 'Strategies', 'layers'),
+      ('/settings',          'Settings',   'settings'),
+    ] %}
+
+    <nav class="nav-bar">
+      <div class="nav-inner">
+        <a href="/" class="nav-brand">
+          <span class="mark">OJ</span>
+          <span>OneJournal</span>
+        </a>
+
+        <div class="nav-links">
+          {% for href, label, ico in nav_items %}
+            <a href="{{ href }}"
+               class="nav-link {% if request.path == href %}active{% endif %}">
+              {{ icon(ico, size=14) }}
+              <span>{{ label }}</span>
+            </a>
+          {% endfor %}
+        </div>
+
+        <a href="/manual-entry" class="btn btn-primary btn-sm" aria-label="New trade">
+          {{ icon('plus', size=14) }}
+          <span>New trade</span>
+        </a>
+
+        <button id="theme-toggle"
+                class="theme-toggle"
+                aria-label="Toggle theme"
+                data-tooltip="Toggle theme"></button>
+      </div>
+    </nav>
+
+    <main class="page">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- App JS (exposes openModal/closeModal, getThemedLayout, Flatpickr init) -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <!-- Per-page scripts (run after app.js so window.getThemedLayout is available) -->
+    {% block scripts %}{% endblock %}
+
+    <!-- Shared screenshot lightbox -->
+    {% include 'partials/screenshot_lightbox.html' %}
+</body>
+</html>

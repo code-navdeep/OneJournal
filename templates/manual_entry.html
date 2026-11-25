@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Manual entry · OneJournal{% endblock %}
+
+{% block content %}
+{% from 'components/alert.html' import alert %}
+
+<header class="flex items-end justify-between gap-6 flex-wrap mb-6">
+  <div>
+    <h1>Manual entry</h1>
+    <p class="text-sm text-muted mt-1">Record a trade with full context — executions, risk, emotion and notes.</p>
+  </div>
+</header>
+
+<div class="max-w-4xl mx-auto flex flex-col gap-4">
+  {% call alert(variant='warning', title='Adding an existing open position?') %}
+    Enter the <strong>actual date</strong> you opened the position. Ensure your initial
+    deposit in <a href="/portfolio" class="link">Portfolio</a> is dated <em>before</em> this date
+    and that the deposit covers <em>total capital</em> (free cash + position values).
+  {% endcall %}
+
+  {% include 'partials/trade_form.html' %}
+</div>
+{% endblock %}

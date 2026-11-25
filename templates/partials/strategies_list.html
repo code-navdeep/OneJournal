@@ -1,0 +1,65 @@
+{% from 'components/badge.html' import badge %}
+{% from 'components/icon.html' import icon %}
+{% from 'components/alert.html' import alert %}
+
+{% if strategies %}
+  <div class="flex flex-col gap-2">
+    {% for strategy in strategies %}
+      <div class="card {% if not strategy.is_active %}opacity-70{% endif %}">
+        <div class="card-body flex flex-wrap items-center justify-between gap-4">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="text-base font-medium truncate">{{ strategy.strategy_name }}</h3>
+              {% if strategy.is_active %}
+                {{ badge('Active', tone='gain') }}
+              {% else %}
+                {{ badge('Inactive', tone='muted') }}
+              {% endif %}
+            </div>
+            <p class="text-sm text-muted mt-1">
+              {{ strategy.description or 'No description' }}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button type="button"
+                    class="btn btn-ghost btn-sm"
+                    hx-post="/strategies/{{ strategy.id }}/toggle"
+                    hx-target="#strategies-list"
+                    hx-swap="innerHTML"
+                    data-tooltip="{% if strategy.is_active %}Deactivate{% else %}Activate{% endif %}">
+              {% if strategy.is_active %}
+                {{ icon('pause', size=14) }} Deactivate
+              {% else %}
+                {{ icon('play', size=14) }} Activate
+              {% endif %}
+            </button>
+
+            <button type="button"
+                    class="btn btn-ghost btn-sm"
+                    hx-get="/strategies/{{ strategy.id }}/edit"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML"
+                    data-tooltip="Edit">
+              {{ icon('edit-2', size=14) }} Edit
+            </button>
+
+            <button type="button"
+                    class="btn btn-ghost btn-sm text-loss"
+                    hx-delete="/strategies/{{ strategy.id }}"
+                    hx-target="#strategies-list"
+                    hx-swap="innerHTML"
+                    hx-confirm="Delete this strategy? This cannot be undone."
+                    data-tooltip="Delete">
+              {{ icon('trash-2', size=14) }}
+            </button>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  {% call alert(variant='info', title='No strategies yet') %}
+    Click <strong>Add strategy</strong> to create your first one.
+  {% endcall %}
+{% endif %}

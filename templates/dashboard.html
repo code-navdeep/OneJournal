@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · OneJournal{% endblock %}
+
+{% block content %}
+{% from 'components/panel.html' import panel %}
+{% from 'components/icon.html' import icon %}
+{% from 'components/alert.html' import alert %}
+
+{# ─── Page header ────────────────────────────────────────────────────── #}
+<header class="flex items-end justify-between gap-6 flex-wrap mb-6">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="text-sm text-muted mt-1">Trading performance at a glance.</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="text-xs text-muted font-num">{{ stats.total_trades or 0 }} trades recorded</span>
+  </div>
+</header>
+
+{# ─── Metrics grid (12 KPI tiles in a unified card) ─────────────────── #}
+<div id="metrics-container" class="mb-6">
+  {% include 'partials/metrics_cards.html' %}
+</div>
+
+{% if stats.total_trades and stats.total_trades > 0 %}
+
+  {# ─── Week / Month / Year strip ─────────────────────────────────── #}
+  <div class="mb-6">
+    {% include 'partials/performance_summary.html' %}
+  </div>
+
+  {# ─── Recent activity + Alerts ──────────────────────────────────── #}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    {% include 'partials/recent_activity.html' %}
+    {% include 'partials/alerts_warnings.html' %}
+  </div>
+
+  {# ─── Open positions by style ───────────────────────────────────── #}
+  {% call panel(title='Open positions by style', actions='<a href="/positions" class="link text-sm">All positions →</a>', cls='mb-6', body_cls='p-0') %}
+    <div class="grid grid-cols-3 divide-x" style="border-color: rgb(var(--border));">
+      {% for style in ['Intraday', 'Swing', 'Investment'] %}
+        <div class="px-6 py-5">
+          <div class="text-xs text-muted uppercase tracking-wide">{{ style }}</div>
+          <div class="font-num text-4xl font-medium tracking-tight mt-2">{{ position_breakdown[style] }}</div>
+          <div class="text-xs text-muted mt-1">Active positions</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endcall %}
+
+  {# ─── Detailed metrics disclosure ──────────────────────────────── #}
+  <div class="mb-6">
+    {% include 'partials/detailed_metrics_table.html' %}
+  </div>
+
+  {# ─── Equity curve ───────────────────────────────────────────── #}
+  {% call panel(title='Equity curve', cls='mb-6') %}
+    <div id="equity-curve-chart" style="height: 420px;"></div>
+  {% endcall %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    {% call panel(title='Monthly performance') %}
+      <div id="monthly-chart" style="height: 340px;"></div>
+    {% endcall %}
+    {% call panel(title='Strategy performance') %}
+      <div id="strategy-chart" style="height: 340px;"></div>
+    {% endcall %}
+  </div>
+
+  {% call panel(title='Drawdown — underwater curve', cls='mb-6') %}
+    <div id="drawdown-chart" style="height: 340px;"></div>
+  {% endcall %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {% call panel(title='R-multiple distribution') %}
+      <div id="r-multiple-chart" style="height: 340px;"></div>
+    {% endcall %}
+    {% call panel(title='Win / Loss distribution') %}
+      <div id="win-loss-chart" style="height: 340px;"></div>
+    {% endcall %}
+  </div>
+
+{% else %}
+  {% call alert(variant='info', title='No trades yet') %}
+    <a class="link" href="/manual-entry">Add your first trade</a> or
+    <a class="link" href="/settings">import from CSV</a> to begin.
+  {% endcall %}
+{% endif %}
+
+<div id="modal-container"></div>
+{% endblock %}
+
+{% block scripts %}
+{% if stats.total_trades and stats.total_trades > 0 %}
+<script nonce="{{ csp_nonce }}">
+  const _inlineChartData = {{ chart_data | tojson | safe }};
+  const chartData = {};
+
+  function _palette() {
+    const cs = getComputedStyle(document.documentElement);
+    const accent = cs.getPropertyValue('--accent').trim();
+    const ink    = cs.getPropertyValue('--ink').trim();
+    const muted  = cs.getPropertyValue('--muted').trim();
+    const gain   = cs.getPropertyValue('--gain').trim();
+    const loss   = cs.getPropertyValue('--loss').trim();
+    const border = cs.getPropertyValue('--border').trim();
+    return {
+      accent:     `rgb(${accent})`,
+      accentSoft: `rgb(${accent} / 0.15)`,
+      ink:        `rgb(${ink})`,
+      muted:      `rgb(${muted})`,
+      gain:       `rgb(${gain})`,
+      gainSoft:   `rgb(${gain} / 0.15)`,
+      loss:       `rgb(${loss})`,
+      lossSoft:   `rgb(${loss} / 0.18)`,
+      hairline:   `rgb(${border})`,
+    };
+  }
+
+  (function build(data) {
+    const P = _palette();
+    const trace = {
+      x: data.dates, y: data.equity,
+      type: 'scatter', mode: 'lines', name: 'Equity',
+      line:     { color: P.accent, width: 2, shape: 'spline', smoothing: 0.4 },
+      fill: 'tozeroy',
+      fillcolor: P.accentSoft,
+      hovertemplate: '<b>%{x}</b><br>₹%{y:,.0f}<extra></extra>',
+    };
+    const shapes = [];
+    (data.cash_deposits   || []).forEach(d => shapes.push({
+      type: 'line', x0: d, x1: d, y0: 0, y1: 1, yref: 'paper',
+      line: { color: P.ink, width: 1, dash: 'dot' },
+    }));
+    (data.cash_withdrawals || []).forEach(d => shapes.push({
+      type: 'line', x0: d, x1: d, y0: 0, y1: 1, yref: 'paper',
+      line: { color: P.loss, width: 1, dash: 'dot' },
+    }));
+    const layout = {
+      margin: { t: 10, r: 48, b: 44, l: 60 },
+      xaxis: { title: 'Date' },
+      yaxis: { title: 'Account balance (₹)', tickprefix: '₹' },
+      hovermode: 'x unified',
+      showlegend: false,
+      shapes,
+    };
+    chartData.equity = { traces: [trace], layout };
+    Plotly.newPlot('equity-curve-chart', [trace], getThemedLayout(layout), { responsive: true });
+  })(_inlineChartData.equity);
+
+  (function build(data) {
+    const P = _palette();
+    const colors = data.pnl.map(v => (v >= 0 ? P.gain : P.loss));
+    const trace = {
+      x: data.months, y: data.pnl, type: 'bar',
+      marker: { color: colors, line: { width: 0 } },
+      hovertemplate: '<b>%{x}</b><br>₹%{y:,.0f}<extra></extra>',
+    };
+    const layout = {
+      margin: { t: 10, r: 24, b: 60, l: 60 },
+      xaxis: { title: 'Month' },
+      yaxis: { title: 'P&L (₹)', tickprefix: '₹' },
+      showlegend: false, bargap: 0.35,
+    };
+    chartData.monthly = { trace, layout };
+    Plotly.newPlot('monthly-chart', [trace], getThemedLayout(layout), { responsive: true });
+  })(_inlineChartData.monthly);
+
+  (function build(data) {
+    const P = _palette();
+    const colors = data.pnl.map(v => (v >= 0 ? P.gain : P.loss));
+    const trace = {
+      x: data.strategies, y: data.pnl, type: 'bar',
+      marker: { color: colors, line: { width: 0 } },
+      text: data.trades.map(t => `${t} trades`),
+      hovertemplate: '<b>%{x}</b><br>₹%{y:,.0f}<br>%{text}<extra></extra>',
+    };
+    const layout = {
+      margin: { t: 10, r: 24, b: 80, l: 60 },
+      xaxis: { title: 'Strategy' },
+      yaxis: { title: 'P&L (₹)', tickprefix: '₹' },
+      showlegend: false, bargap: 0.35,
+    };
+    chartData.strategy = { trace, layout };
+    Plotly.newPlot('strategy-chart', [trace], getThemedLayout(layout), { responsive: true });
+  })(_inlineChartData.strategy);
+
+  (function build(data) {
+    const P = _palette();
+    const trace = {
+      x: data.dates, y: data.drawdown_pct,
+      type: 'scatter', mode: 'lines', name: 'Drawdown',
+      fill: 'tozeroy', fillcolor: P.lossSoft,
+      line: { color: P.loss, width: 1.5 },
+      hovertemplate: '<b>%{x}</b><br>%{y:.2f}%<extra></extra>',
+    };
+    const layout = {
+      margin: { t: 10, r: 24, b: 40, l: 60 },
+      xaxis: { title: 'Date' },
+      yaxis: { title: 'Drawdown (%)', autorange: 'reversed', ticksuffix: '%' },
+      hovermode: 'x unified',
+      showlegend: false,
+    };
+    chartData.drawdown = { trace, layout };
+    Plotly.newPlot('drawdown-chart', [trace], getThemedLayout(layout), { responsive: true });
+  })(_inlineChartData.drawdown);
+
+  (function build(data) {
+    const P = _palette();
+    const colors = data.r_multiples.map(r => (r >= 0 ? P.gain : P.loss));
+    const trace = {
+      x: data.r_multiples, y: data.counts, type: 'bar',
+      marker: { color: colors, line: { width: 0 } },
+      hovertemplate: '<b>%{x:.2f}R</b><br>%{y} trades<extra></extra>',
+    };
+    const layout = {
+      margin: { t: 10, r: 24, b: 60, l: 60 },
+      xaxis: { title: 'R-multiple', zeroline: true, zerolinewidth: 1 },
+      yaxis: { title: 'Trades' },
+      showlegend: false, bargap: 0.05,
+    };
+    chartData.rMultiple = { trace, layout };
+    Plotly.newPlot('r-multiple-chart', [trace], getThemedLayout(layout), { responsive: true });
+  })(_inlineChartData.r_multiple);
+
+  (function build(data) {
+    const P = _palette();
+    const mapped = data.labels.map(l => {
+      const k = (l || '').toLowerCase();
+      if (k.startsWith('win'))   return P.gain;
+      if (k.startsWith('loss'))  return P.loss;
+      if (k.startsWith('break')) return P.muted;
+      return P.ink;
+    });
+    const trace = {
+      labels: data.labels, values: data.values, type: 'pie',
+      marker: { colors: mapped, line: { color: 'transparent', width: 0 } },
+      hole: 0.55,
+      textinfo: 'label+percent', textposition: 'outside',
+      hovertemplate: '<b>%{label}</b><br>%{value} (%{percent})<extra></extra>',
+    };
+    const layout = {
+      margin: { t: 10, r: 30, b: 30, l: 30 },
+      showlegend: true,
+      legend: { orientation: 'h', yanchor: 'bottom', y: -0.2, xanchor: 'center', x: 0.5 },
+    };
+    chartData.winLoss = { trace, layout };
+    Plotly.newPlot('win-loss-chart', [trace], getThemedLayout(layout), { responsive: true });
+  })(_inlineChartData.win_loss);
+
+  function rebuildAll() {
+    const P = _palette();
+    if (chartData.monthly)   chartData.monthly.trace.marker.color = _inlineChartData.monthly.pnl.map(v => v >= 0 ? P.gain : P.loss);
+    if (chartData.strategy)  chartData.strategy.trace.marker.color = _inlineChartData.strategy.pnl.map(v => v >= 0 ? P.gain : P.loss);
+    if (chartData.rMultiple) chartData.rMultiple.trace.marker.color = _inlineChartData.r_multiple.r_multiples.map(r => r >= 0 ? P.gain : P.loss);
+    if (chartData.equity) {
+      chartData.equity.traces[0].line.color = P.accent;
+      chartData.equity.traces[0].fillcolor  = P.accentSoft;
+    }
+    if (chartData.drawdown) {
+      chartData.drawdown.trace.line.color  = P.loss;
+      chartData.drawdown.trace.fillcolor   = P.lossSoft;
+    }
+    if (chartData.winLoss) {
+      chartData.winLoss.trace.marker.colors = _inlineChartData.win_loss.labels.map(l => {
+        const k = (l || '').toLowerCase();
+        if (k.startsWith('win'))   return P.gain;
+        if (k.startsWith('loss'))  return P.loss;
+        if (k.startsWith('break')) return P.muted;
+        return P.ink;
+      });
+    }
+
+    if (chartData.equity)    Plotly.react('equity-curve-chart', chartData.equity.traces,    getThemedLayout(chartData.equity.layout),    { responsive: true });
+    if (chartData.monthly)   Plotly.react('monthly-chart',      [chartData.monthly.trace],   getThemedLayout(chartData.monthly.layout),   { responsive: true });
+    if (chartData.strategy)  Plotly.react('strategy-chart',     [chartData.strategy.trace],  getThemedLayout(chartData.strategy.layout),  { responsive: true });
+    if (chartData.drawdown)  Plotly.react('drawdown-chart',     [chartData.drawdown.trace],  getThemedLayout(chartData.drawdown.layout),  { responsive: true });
+    if (chartData.rMultiple) Plotly.react('r-multiple-chart',   [chartData.rMultiple.trace], getThemedLayout(chartData.rMultiple.layout), { responsive: true });
+    if (chartData.winLoss)   Plotly.react('win-loss-chart',     [chartData.winLoss.trace],   getThemedLayout(chartData.winLoss.layout),   { responsive: true });
+  }
+
+  window.addEventListener('themeChanged', rebuildAll);
+</script>
+{% endif %}
+{% endblock %}

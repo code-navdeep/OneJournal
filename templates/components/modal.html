@@ -1,0 +1,30 @@
+{# -----------------------------------------------------------------------------
+  Modal macro — vanilla JS, paired with openModal()/closeModal() in app.js
+  Usage:
+    {% from 'components/modal.html' import modal %}
+    {% call modal(id='my-modal', title='Edit trade', size='lg') %}
+      ... body html ...
+    {% endcall %}
+
+  Or open with: openModal('my-modal') / closeModal('my-modal')
+  Size: sm | md (default) | lg | xl
+  ----------------------------------------------------------------------------- #}
+
+{% macro modal(id, title='', size='md', hide_close=False) -%}
+  {% set size_cls = { 'sm': '', 'md': '', 'lg': 'modal-panel-lg', 'xl': 'modal-panel-xl' }.get(size, '') %}
+  <div id="{{ id }}" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="{{ id }}-title" data-action="modal-backdrop" data-modal="{{ id }}">
+    <div class="modal-panel {{ size_cls }}">
+      {% if title or not hide_close %}
+        <div class="modal-header">
+          {% if title %}<h3 id="{{ id }}-title" class="modal-title">{{ title }}</h3>{% endif %}
+          {% if not hide_close %}
+            <button type="button" class="modal-close" aria-label="Close" data-action="close-modal" data-modal="{{ id }}">&times;</button>
+          {% endif %}
+        </div>
+      {% endif %}
+      <div class="modal-body">
+        {{ caller() }}
+      </div>
+    </div>
+  </div>
+{%- endmacro %}

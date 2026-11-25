@@ -1,0 +1,8 @@
+<td id="unrealized-pnl-{{ position['position_id'] }}"
+    class="num
+      {%- if position['unrealized_pnl'] and position['unrealized_pnl'] > 0 %} text-gain{% endif %}
+      {%- if position['unrealized_pnl'] and position['unrealized_pnl'] < 0 %} text-loss{% endif %}">
+  {% if position['unrealized_pnl'] %}
+    ₹{{ "%.2f"|format(position['unrealized_pnl']) }}
+  {% else %}<span class="text-muted">—</span>{% endif %}
+</td>

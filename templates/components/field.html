@@ -1,0 +1,69 @@
+{# -----------------------------------------------------------------------------
+  Form field macros — input, select, textarea
+  Usage:
+    {% from 'components/field.html' import input_field, select_field, textarea_field %}
+    {{ input_field('symbol', 'Symbol', required=True, placeholder='NIFTY') }}
+    {{ select_field('direction', 'Direction', options=[('Long','Long'),('Short','Short')]) }}
+    {{ textarea_field('notes', 'Notes') }}
+  ----------------------------------------------------------------------------- #}
+
+{% macro input_field(name, label=None, type='text', value='', required=False, placeholder='', help='', cls='', attrs='', id=None) -%}
+  {% set field_id = id or name %}
+  <div class="{{ cls }}">
+    {% if label %}
+      <label for="{{ field_id }}" class="field-label">{{ label }}{% if required %}<span class="req">*</span>{% endif %}</label>
+    {% endif %}
+    <input
+      type="{{ type }}"
+      id="{{ field_id }}"
+      name="{{ name }}"
+      class="input"
+      {% if value %}value="{{ value }}"{% endif %}
+      {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+      {% if required %}required{% endif %}
+      {{ attrs | safe }}
+    >
+    {% if help %}<div class="field-help">{{ help | safe }}</div>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro select_field(name, label=None, options=[], selected=None, required=False, help='', cls='', attrs='', id=None, placeholder=None) -%}
+  {% set field_id = id or name %}
+  <div class="{{ cls }}">
+    {% if label %}
+      <label for="{{ field_id }}" class="field-label">{{ label }}{% if required %}<span class="req">*</span>{% endif %}</label>
+    {% endif %}
+    <select id="{{ field_id }}" name="{{ name }}" class="select" {% if required %}required{% endif %} {{ attrs | safe }}>
+      {% if placeholder %}<option value="">{{ placeholder }}</option>{% endif %}
+      {% for opt in options %}
+        {% if opt is mapping %}
+          <option value="{{ opt.value }}" {% if selected == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+        {% elif opt is iterable and opt is not string %}
+          <option value="{{ opt[0] }}" {% if selected == opt[0] %}selected{% endif %}>{{ opt[1] }}</option>
+        {% else %}
+          <option value="{{ opt }}" {% if selected == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+    {% if help %}<div class="field-help">{{ help | safe }}</div>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro textarea_field(name, label=None, value='', rows=3, required=False, placeholder='', help='', cls='', attrs='', id=None) -%}
+  {% set field_id = id or name %}
+  <div class="{{ cls }}">
+    {% if label %}
+      <label for="{{ field_id }}" class="field-label">{{ label }}{% if required %}<span class="req">*</span>{% endif %}</label>
+    {% endif %}
+    <textarea
+      id="{{ field_id }}"
+      name="{{ name }}"
+      class="textarea"
+      rows="{{ rows }}"
+      {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+      {% if required %}required{% endif %}
+      {{ attrs | safe }}
+    >{{ value }}</textarea>
+    {% if help %}<div class="field-help">{{ help | safe }}</div>{% endif %}
+  </div>
+{%- endmacro %}

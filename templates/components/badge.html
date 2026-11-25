@@ -1,0 +1,17 @@
+{# -----------------------------------------------------------------------------
+  Badge macro — pill-shaped status indicator
+  Tones: default | solid | gain | loss | warn | info | accent | muted
+  ----------------------------------------------------------------------------- #}
+
+{% macro badge(label, tone='default', cls='') -%}
+  {% set classes = 'badge' %}
+  {% if tone == 'solid'  %}{% set classes = classes ~ ' badge-solid'  %}{% endif %}
+  {% if tone == 'gain'   %}{% set classes = classes ~ ' badge-gain'   %}{% endif %}
+  {% if tone == 'loss'   %}{% set classes = classes ~ ' badge-loss'   %}{% endif %}
+  {% if tone == 'warn'   %}{% set classes = classes ~ ' badge-warn'   %}{% endif %}
+  {% if tone == 'info'   %}{% set classes = classes ~ ' badge-info'   %}{% endif %}
+  {% if tone == 'accent' %}{% set classes = classes ~ ' badge-accent' %}{% endif %}
+  {% if tone == 'muted'  %}{% set classes = classes ~ ' badge-muted'  %}{% endif %}
+  {% if cls %}{% set classes = classes ~ ' ' ~ cls %}{% endif %}
+  <span class="{{ classes }}">{{ label }}</span>
+{%- endmacro %}

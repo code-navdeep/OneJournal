@@ -1,0 +1,52 @@
+{# -----------------------------------------------------------------------------
+  Metric / KPI macros
+  Usage:
+    {% from 'components/metric.html' import kpi, pnl, signed %}
+    {{ kpi('Win rate', '58.3%', delta='+4.2% vs last 30d', tone='gain') }}
+    {{ kpi('Total P&L', pnl(12450, unit='₹')) }}
+  ----------------------------------------------------------------------------- #}
+
+{# A KPI tile — big number + label + optional delta. Usually placed inside a .card. #}
+{% macro kpi(label, value, delta=None, tone=None, cls='') -%}
+  <div class="kpi {{ cls }}">
+    <div class="kpi-label">{{ label }}</div>
+    <div class="kpi-value
+      {%- if tone == 'gain' %} text-gain{% endif %}
+      {%- if tone == 'loss' %} text-loss{% endif %}
+      {%- if tone == 'accent' %} text-accent{% endif %}
+    ">{{ value | safe }}</div>
+    {% if delta %}
+      <div class="kpi-delta
+        {%- if tone == 'gain' %} text-gain{% endif %}
+        {%- if tone == 'loss' %} text-loss{% endif %}
+      ">{{ delta | safe }}</div>
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+{# Signed number — colors the whole value (including sign) in gain/loss. #}
+{% macro signed(value, unit='', digits=0) -%}
+  {% if value is none %}
+    <span class="font-num text-muted">—</span>
+  {% else %}
+    {% set pos = value > 0 %}
+    {% set neg = value < 0 %}
+    {% set abs_v = (value | abs) %}
+    {% set fmt = '{:,.' ~ digits ~ 'f}' %}
+    {% set display = fmt.format(abs_v) %}
+    <span class="font-num whitespace-nowrap
+      {%- if pos %} text-gain{% endif %}
+      {%- if neg %} text-loss{% endif %}
+    ">{% if pos %}+{% elif neg %}−{% endif %}{% if unit %}{{ unit }}{% endif %}{{ display }}</span>
+  {% endif %}
+{%- endmacro %}
+
+{# Alias kept for compatibility — pnl(value, unit='₹', digits=0). #}
+{% macro pnl(value, unit='', digits=0) -%}
+  {{ signed(value, unit=unit, digits=digits) }}
+{%- endmacro %}
+
+{# Backwards-compat alias for older template references. #}
+{% macro metric(label, value, delta=None, tone=None, cls='') -%}
+  {{ kpi(label, value, delta=delta, tone=tone, cls=cls) }}
+{%- endmacro %}

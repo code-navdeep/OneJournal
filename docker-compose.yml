@@ -1,0 +1,16 @@
+services:
+  onejournal:
+    build: .
+    container_name: onejournal
+    env_file:
+      - .env
+    environment:
+      # Listen on all addresses inside the container; the port line below
+      # still opens it to this computer only
+      - ONEJOURNAL_HOST=0.0.0.0
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+    restart: unless-stopped

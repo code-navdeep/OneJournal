@@ -1,0 +1,24 @@
+{# -----------------------------------------------------------------------------
+  Alert macro — info / success / warning / danger
+  Usage:
+    {% from 'components/alert.html' import alert %}
+    {{ alert('Saved successfully', variant='success') }}
+    {% call alert(variant='warning', title='Large drawdown') %}
+      You are 18% below peak equity. Review your position sizing.
+    {% endcall %}
+  ----------------------------------------------------------------------------- #}
+
+{% from 'components/icon.html' import icon %}
+
+{% macro alert(message=None, variant='info', title=None, cls='', show_icon=True) -%}
+  {% set icon_name = {'info':'info','success':'check','warning':'alert-triangle','danger':'alert-triangle'}.get(variant, 'info') %}
+  <div class="alert alert-{{ variant }} {{ cls }}" role="alert">
+    {% if show_icon %}<span class="alert-icon">{{ icon(icon_name, size=16) }}</span>{% endif %}
+    <div class="flex-1">
+      {% if title %}<div class="alert-title">{{ title }}</div>{% endif %}
+      <div>
+        {% if message %}{{ message | safe }}{% else %}{{ caller() }}{% endif %}
+      </div>
+    </div>
+  </div>
+{%- endmacro %}

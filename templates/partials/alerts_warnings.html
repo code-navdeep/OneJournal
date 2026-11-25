@@ -1,0 +1,18 @@
+{# -----------------------------------------------------------------------------
+  Alerts & warnings panel.
+  ----------------------------------------------------------------------------- #}
+{% from 'components/panel.html' import panel %}
+{% from 'components/alert.html' import alert as alert_macro %}
+
+{% call panel(title='Alerts & warnings', body_cls='p-4') %}
+  {% if alerts and alerts|length > 0 %}
+    <div class="flex flex-col gap-2 max-h-[380px] overflow-y-auto">
+      {% for a in alerts %}
+        {% set kind = a.type if a.type in ('danger','warning','success','info') else 'info' %}
+        {{ alert_macro(a.message, variant=kind) }}
+      {% endfor %}
+    </div>
+  {% else %}
+    {{ alert_macro('All systems normal. No alerts at this time.', variant='success') }}
+  {% endif %}
+{% endcall %}

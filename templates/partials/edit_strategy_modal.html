@@ -1,0 +1,41 @@
+{% from 'components/icon.html' import icon %}
+
+<div class="modal" style="display:flex;" role="dialog" aria-modal="true"
+     data-action="modal-container-backdrop">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3 class="modal-title">Edit strategy</h3>
+      <button type="button" class="modal-close"
+              data-action="clear-modal-container"
+              aria-label="Close">&times;</button>
+    </div>
+
+    <form hx-post="/strategies/{{ strategy.id }}/update"
+          hx-target="#strategies-list"
+          hx-swap="innerHTML"
+          data-clear-modal-on-success>
+      <div class="modal-body flex flex-col gap-4">
+        <div class="field-group">
+          <label class="field-label">Strategy name <span class="req">*</span></label>
+          <input type="text" name="name" class="input"
+                 value="{{ strategy.strategy_name }}"
+                 required maxlength="100">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Description</label>
+          <textarea name="description" class="textarea" rows="3"
+                    maxlength="500"
+                    placeholder="Optional description of this strategy">{{ strategy.description }}</textarea>
+          <div class="field-help">Rules, filters, entry/exit criteria.</div>
+        </div>
+      </div>
+      <div class="modal-footer flex justify-end gap-2">
+        <button type="button" class="btn btn-ghost"
+                data-action="clear-modal-container">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          {{ icon('check', size=14) }} Save changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

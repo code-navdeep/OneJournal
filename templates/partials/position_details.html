@@ -1,0 +1,107 @@
+{% from 'components/badge.html' import badge %}
+{% from 'components/icon.html' import icon %}
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <section>
+    <h4 class="text-sm font-medium text-muted uppercase tracking-wide mb-2">Position summary</h4>
+    <dl class="kv-list">
+      <dt>Symbol</dt>           <dd>{{ position['symbol'] }} {{ position['direction'] }}</dd>
+      <dt>Market</dt>           <dd>{{ position['market'] or 'Equity' }}</dd>
+      {% if position['option_type'] %}
+      <dt>Option</dt>           <dd>{{ position['strike_price'] }} {{ position['option_type'] }}</dd>
+      {% endif %}
+      <dt>Type</dt>
+      <dd class="flex items-center gap-2 justify-end">
+        <span id="position-type-display-{{ position['position_id'] }}">{{ position['position_type'] or 'Swing' }}</span>
+        {% if position['status'] == 'open' and position['position_type'] != 'Intraday' %}
+          <button class="btn btn-ghost btn-sm" data-action="show-position-type-editor" data-position-id="{{ position['position_id'] }}">{{ icon('pencil', size=12) }}</button>
+        {% endif %}
+        <div id="position-type-editor-{{ position['position_id'] }}" class="items-center gap-1" style="display:none;">
+          <select class="select" style="width:auto; padding:0.25rem 1.75rem 0.25rem 0.5rem; font-size:0.75rem;" id="position-type-select-{{ position['position_id'] }}">
+            <option value="Swing"      {{ 'selected' if position['position_type'] == 'Swing' }}>Swing</option>
+            <option value="Investment" {{ 'selected' if position['position_type'] == 'Investment' }}>Investment</option>
+          </select>
+          <button class="btn btn-accent btn-sm" data-action="update-position-type" data-position-id="{{ position['position_id'] }}">{{ icon('check', size=12) }}</button>
+          <button class="btn btn-ghost  btn-sm" data-action="cancel-position-type-edit" data-position-id="{{ position['position_id'] }}">{{ icon('x', size=12) }}</button>
+        </div>
+      </dd>
+      <dt>Status</dt>
+      <dd>{{ badge(position['status']|upper, tone='gain' if position['status'] == 'open' else 'muted') }}</dd>
+      <dt>Strategy</dt> <dd>{{ position['strategy'] or '—' }}</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h4 class="text-sm font-medium text-muted uppercase tracking-wide mb-2">Position metrics</h4>
+    <dl class="kv-list">
+      <dt>Current qty</dt>   <dd>{{ position['current_quantity'] }}</dd>
+      <dt>Entered qty</dt>   <dd>{{ position['total_quantity_entered'] }}</dd>
+      <dt>Exited qty</dt>    <dd>{{ position['total_quantity_exited'] }}</dd>
+      <dt>Avg entry</dt>     <dd>₹{{ "%.2f"|format(position['average_entry_price']) }}</dd>
+      <dt>Entry value</dt>   <dd>₹{{ "%.2f"|format(position['total_entry_value']) }}</dd>
+      <dt>Realized P&amp;L</dt>
+      <dd class="{% if position['realized_pnl'] > 0 %}text-gain{% elif position['realized_pnl'] < 0 %}text-loss{% endif %}">
+        ₹{{ "%.2f"|format(position['realized_pnl']) }}
+      </dd>
+      {% if position['status'] == 'open' and position['unrealized_pnl'] %}
+      <dt>Unrealized P&amp;L</dt>
+      <dd class="{% if position['unrealized_pnl'] > 0 %}text-gain{% elif position['unrealized_pnl'] < 0 %}text-loss{% endif %}">
+        ₹{{ "%.2f"|format(position['unrealized_pnl']) }}
+      </dd>
+      {% endif %}
+    </dl>
+  </section>
+</div>
+
+{% if position['notes'] %}
+  <div class="mt-4">
+    <h4 class="text-sm font-medium text-muted uppercase tracking-wide mb-2">Notes</h4>
+    <p class="text-sm">{{ position['notes'] }}</p>
+  </div>
+{% endif %}
+
+{% if position['tags'] %}
+  <div class="mt-4 flex items-center gap-2 flex-wrap">
+    <h4 class="text-sm font-medium text-muted uppercase tracking-wide">Tags</h4>
+    {% for tag in position['tags'].split(',') %}{{ badge(tag.strip(), tone='muted') }}{% endfor %}
+  </div>
+{% endif %}
+
+<section class="mt-6">
+  <h4 class="text-sm font-medium text-muted uppercase tracking-wide mb-2">Trade history ({{ trades|length }})</h4>
+  <div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date / Time</th>
+            <th>Type</th>
+            <th class="num">Price</th>
+            <th class="num">Quantity</th>
+            <th class="num">Value</th>
+            <th class="num">Charges</th>
+            <th>Screenshots</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trade in trades %}
+            <tr>
+              <td class="font-num">{{ trade['date'] }} {{ trade['time'] or '' }}</td>
+              <td>{{ badge(trade['type']|upper, tone='accent' if trade['type'] == 'entry' else 'warn') }}</td>
+              <td class="num">₹{{ "%.2f"|format(trade['price']) }}</td>
+              <td class="num">{{ trade['quantity'] }}</td>
+              <td class="num">₹{{ "%.2f"|format(trade['price'] * trade['quantity']) }}</td>
+              <td class="num">₹{{ "%.2f"|format(trade['charges']) }}</td>
+              <td>
+                {% set _shots = screenshots.get(trade['execution_id'], []) %}
+                {% with execution_id=trade['execution_id'], screenshots=_shots, errors=[] %}
+                  {% include 'partials/screenshot_strip.html' %}
+                {% endwith %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

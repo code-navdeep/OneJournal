@@ -1,0 +1,103 @@
+{# -----------------------------------------------------------------------------
+  Metrics — 12 KPIs in a 4-column grid, each a tile inside a single card.
+  ----------------------------------------------------------------------------- #}
+{% from 'components/metric.html' import pnl %}
+
+{% set _inf = stats.profit_factor_display == '∞' %}
+{% set roi_pct = ((stats.total_pnl / stats.total_capital_deployed) * 100) if stats.total_capital_deployed and stats.total_capital_deployed > 0 else 0 %}
+
+{% set win_rate_grade =
+  ('Excellent' if stats.win_rate >= 60 else
+   ('Good'     if stats.win_rate >= 50 else 'Needs work')) %}
+{% set pf_grade =
+  ('Excellent' if stats.profit_factor > 2 else
+   ('Good'       if stats.profit_factor > 1.5 else
+    ('Breakeven' if stats.profit_factor > 1 else 'Losing'))) %}
+{% set rmult_grade =
+  ('Excellent' if stats.average_r_multiple > 1.5 else
+   ('Good'     if stats.average_r_multiple > 1 else
+    ('Positive' if stats.average_r_multiple > 0 else 'Negative'))) %}
+{% set dd_grade =
+  ('Low risk'  if stats.max_drawdown_percent < 10 else
+   ('Med risk' if stats.max_drawdown_percent < 20 else 'High risk')) %}
+{% set sharpe_grade =
+  ('Excellent' if stats.sharpe_ratio > 2 else
+   ('Good'     if stats.sharpe_ratio > 1 else
+    ('Fair'    if stats.sharpe_ratio > 0 else 'Poor'))) %}
+{% set wl_grade =
+  ('Excellent' if stats.win_loss_ratio > 2 else
+   ('Good'     if stats.win_loss_ratio > 1.5 else
+    ('Fair'    if stats.win_loss_ratio > 1 else 'Poor'))) %}
+
+<div class="card overflow-hidden">
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+
+    <div class="kpi hairline-b lg:hairline-r">
+      <div class="kpi-label">Total trades</div>
+      <div class="kpi-value">{{ stats.total_trades or 0 }}</div>
+      <div class="kpi-delta">All time</div>
+    </div>
+    <div class="kpi hairline-b lg:hairline-r">
+      <div class="kpi-label">Win rate</div>
+      <div class="kpi-value">{{ stats.win_rate|round(1) }}<span class="text-sm text-muted">%</span></div>
+      <div class="kpi-delta">{{ win_rate_grade }}</div>
+    </div>
+    <div class="kpi hairline-b md:hairline-r lg:hairline-r">
+      <div class="kpi-label">Profit factor</div>
+      <div class="kpi-value">{% if _inf %}∞{% else %}{{ stats.profit_factor|round(2) }}{% endif %}</div>
+      <div class="kpi-delta">{{ pf_grade }}</div>
+    </div>
+    <div class="kpi hairline-b">
+      <div class="kpi-label">Total P&amp;L</div>
+      <div class="kpi-value">{{ pnl(stats.total_pnl, unit='₹', digits=0) }}</div>
+      <div class="kpi-delta">ROI {{ roi_pct|round(1) }}%</div>
+    </div>
+
+    <div class="kpi hairline-b lg:hairline-r">
+      <div class="kpi-label">Avg R-multiple</div>
+      <div class="kpi-value">{{ stats.average_r_multiple|round(2) }}<span class="text-sm text-muted">R</span></div>
+      <div class="kpi-delta">{{ rmult_grade }}</div>
+    </div>
+    <div class="kpi hairline-b lg:hairline-r">
+      <div class="kpi-label">Max drawdown</div>
+      <div class="kpi-value">{{ stats.max_drawdown_percent|round(1) }}<span class="text-sm text-muted">%</span></div>
+      <div class="kpi-delta">{{ dd_grade }} · ₹{{ stats.max_drawdown_amount|indian_number }}</div>
+    </div>
+    <div class="kpi hairline-b md:hairline-r lg:hairline-r">
+      <div class="kpi-label">Sharpe ratio</div>
+      <div class="kpi-value">{{ stats.sharpe_ratio|round(2) }}</div>
+      <div class="kpi-delta">{{ sharpe_grade }}</div>
+    </div>
+    <div class="kpi hairline-b">
+      <div class="kpi-label">Expectancy</div>
+      <div class="kpi-value">{{ pnl(stats.expectancy, unit='₹', digits=0) }}</div>
+      <div class="kpi-delta">Per trade</div>
+    </div>
+
+    <div class="kpi hairline-b md:hairline-b-0 lg:hairline-r md:hairline-r">
+      <div class="kpi-label">Avg win</div>
+      <div class="kpi-value text-gain">{{ pnl(stats.average_win, unit='₹', digits=0) }}</div>
+      <div class="kpi-delta">{{ stats.winning_trades }} wins · best ₹{{ stats.largest_win|indian_number }}</div>
+    </div>
+    <div class="kpi hairline-b md:hairline-b-0 lg:hairline-r">
+      <div class="kpi-label">Avg loss</div>
+      <div class="kpi-value text-loss">{{ pnl(-(stats.average_loss|abs), unit='₹', digits=0) }}</div>
+      <div class="kpi-delta">{{ stats.losing_trades }} losses · worst ₹{{ stats.largest_loss|abs|indian_number }}</div>
+    </div>
+    <div class="kpi hairline-b md:hairline-b-0 md:hairline-r lg:hairline-r">
+      <div class="kpi-label">Win / loss ratio</div>
+      <div class="kpi-value">{{ stats.win_loss_ratio|round(2) }}</div>
+      <div class="kpi-delta">{{ wl_grade }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Current streak</div>
+      <div class="kpi-value {% if stats.current_streak_type == 'Wins' %}text-gain{% elif stats.current_streak_type == 'Losses' %}text-loss{% endif %}">{{ stats.current_streak }}</div>
+      <div class="kpi-delta">
+        {% if stats.current_streak_type == 'Wins' %}Consecutive wins
+        {% elif stats.current_streak_type == 'Losses' %}Consecutive losses
+        {% else %}No active streak{% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>

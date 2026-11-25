@@ -1,0 +1,154 @@
+{% from 'components/alert.html' import alert %}
+{% from 'components/icon.html' import icon %}
+
+<div class="modal" style="display:flex;" role="dialog" aria-modal="true"
+     data-action="modal-container-backdrop">
+  <div class="modal-panel modal-panel-xl">
+    <div class="modal-header">
+      <h3 class="modal-title">Edit trade · {{ trade.symbol }}</h3>
+      <button type="button" class="modal-close"
+              data-action="clear-modal-container"
+              aria-label="Close">&times;</button>
+    </div>
+
+    <form hx-post="/trades/{{ trade.trade_id }}/update"
+          hx-target="#trades-table-container"
+          hx-swap="innerHTML"
+          data-clear-modal-on-success>
+      <div class="modal-body flex flex-col gap-4" style="max-height: 70vh; overflow-y: auto;">
+
+        {% call alert(variant='info') %}
+          <strong>Note:</strong> Edit metadata and analysis fields here. To change execution prices, quantities, or dates, delete this position and re-add it.
+        {% endcall %}
+
+        {# Basic information #}
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Basic information</h3>
+          </div>
+          <div class="card-body grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="field-group">
+              <label class="field-label">Symbol <span class="req">*</span></label>
+              <input type="text" name="symbol" class="input" required value="{{ trade.symbol }}">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Market</label>
+              <select name="market" class="select" id="edit-market-select">
+                <option value="">Select market…</option>
+                {% for m in ['Index Futures','Index Options','Equity','Equity Futures','Equity Options','Commodity Futures','Commodity Options'] %}
+                  <option value="{{ m }}" {{ 'selected' if trade.market == m }}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field-group" id="edit-option-type-field"
+                 style="display: {{ 'flex' if trade.market and 'Options' in trade.market else 'none' }};">
+              <label class="field-label">Option type <span class="req">*</span></label>
+              <select name="option_type" class="select" id="edit-option-type-select">
+                <option value="">Select…</option>
+                <option value="Call" {{ 'selected' if trade.option_type == 'Call' }}>Call</option>
+                <option value="Put"  {{ 'selected' if trade.option_type == 'Put' }}>Put</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Direction <span class="req">*</span></label>
+              <select name="direction" class="select" required>
+                <option value="">Select…</option>
+                <option value="Long"  {{ 'selected' if trade.direction == 'Long' }}>Long</option>
+                <option value="Short" {{ 'selected' if trade.direction == 'Short' }}>Short</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {# Strategy & analysis #}
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Strategy &amp; analysis</h3>
+          </div>
+          <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="field-group">
+              <label class="field-label">Strategy</label>
+              <select name="strategy" class="select">
+                <option value="">Select strategy…</option>
+                {% for strategy in strategies %}
+                  <option value="{{ strategy }}" {{ 'selected' if trade.strategy == strategy }}>{{ strategy }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Setup type</label>
+              <input type="text" name="setup_type" class="input" value="{{ trade.setup_type or '' }}">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Trade style</label>
+              <select name="trade_style" class="select">
+                <option value="">Select…</option>
+                {% for s in ['Intraday','Swing','Investment'] %}
+                  <option value="{{ s }}" {{ 'selected' if trade.position_type == s }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Market conditions</label>
+              <select name="market_conditions" class="select">
+                <option value="">Select…</option>
+                {% for c in ['Bullish Range','Bearish Range','Bullish Trending','Bearish Trending','Undecided','Volatile'] %}
+                  <option value="{{ c }}" {{ 'selected' if trade.market_conditions == c }}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Emotions</label>
+              <select name="emotions" class="select">
+                <option value="">Select…</option>
+                {% for e in ['Confident','Calm','Anxious','Frustrated','Excited','Patient','Focused'] %}
+                  <option value="{{ e }}" {{ 'selected' if trade.emotions == e }}>{{ e }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Confluence score (1–5)</label>
+              <input type="number" name="confluence_score" class="input" min="1" max="5" value="{{ trade.confluence_score or '' }}">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Trade grade</label>
+              <select name="trade_grade" class="select">
+                <option value="">Select…</option>
+                {% for g, lbl in [('A','A — Excellent'),('B','B — Good'),('C','C — Average'),('D','D — Poor'),('F','F — Failed')] %}
+                  <option value="{{ g }}" {{ 'selected' if trade.trade_grade == g }}>{{ lbl }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {# Notes & tags #}
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Notes &amp; tags</h3>
+          </div>
+          <div class="card-body flex flex-col gap-3">
+            <div class="field-group">
+              <label class="field-label">Notes</label>
+              <textarea name="notes" class="textarea" rows="2">{{ trade.notes or '' }}</textarea>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Mistakes</label>
+              <textarea name="mistakes" class="textarea" rows="2">{{ trade.mistakes or '' }}</textarea>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Tags</label>
+              <input type="text" name="tags" class="input" value="{{ trade.tags or '' }}">
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-footer flex justify-end gap-2">
+        <button type="button" class="btn btn-ghost"
+                data-action="clear-modal-container">Cancel</button>
+        <button type="submit" class="btn btn-primary">{{ icon('check', size=14) }} Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Your journals, screenshots and backups
+data/
+
+# Exports
+exports/*
+!exports/.gitkeep
+
+# Logs
+*.log
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Flask
+instance/
+.webassets-cache
+
+# Secrets / environment
+.env
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Tailwind build artifacts
+.bin/
+static/css/app.css

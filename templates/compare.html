@@ -1,0 +1,917 @@
+{% extends "base.html" %}
+{% block title %}Compare strategies · OneJournal{% endblock %}
+
+{% block content %}
+{% from 'components/badge.html' import badge %}
+{% from 'components/icon.html' import icon %}
+{% from 'components/alert.html' import alert %}
+{% from 'components/modal.html' import modal %}
+
+<header class="flex items-end justify-between gap-6 flex-wrap mb-6">
+  <div>
+    <h1>Compare strategies</h1>
+    <p class="text-sm text-muted mt-1">Deep-dive side-by-side comparison across 2–5 strategies.</p>
+  </div>
+</header>
+
+{# Strategy selection & filters #}
+<section class="card mb-4">
+  <div class="card-header">
+    <h3 class="card-title">Strategy selection &amp; filters</h3>
+    <p class="card-desc">Pick 2–5 strategies. Apply optional filters to narrow the sample.</p>
+  </div>
+  <div class="card-body">
+    <form method="GET" action="/compare" id="compareForm" class="flex flex-col gap-5">
+
+      {# Strategy checkboxes #}
+      <div>
+        <div class="text-xs text-muted uppercase tracking-wider mb-3">Select strategies (2–5)</div>
+        {% if available_strategies %}
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {% for strategy in available_strategies %}
+              <label class="flex items-center gap-2 px-3 py-2 rounded-md border border-[rgb(var(--border))]
+                            hover:bg-[rgb(var(--elev))] cursor-pointer transition-colors text-sm">
+                <input type="checkbox" name="strategy" value="{{ strategy }}"
+                       id="strategy_{{ loop.index }}"
+                       class="strategy-checkbox accent-[rgb(var(--accent))]"
+                       {% if strategy in selected_strategies %}checked{% endif %}>
+                <span class="truncate">{{ strategy }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        {% else %}
+          {% call alert(variant='info', title='No strategies found') %}
+            <a href="/manual-entry" class="link">Add trades</a> with strategy names to start comparing.
+          {% endcall %}
+        {% endif %}
+      </div>
+
+      {# Filters #}
+      <div>
+        <div class="text-xs text-muted uppercase tracking-wider mb-3">Filters (optional)</div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div class="field-group">
+            <label class="field-label" for="trade_style">Trade type</label>
+            <select id="trade_style" name="trade_style" class="select">
+              <option value="">All</option>
+              {% for s in ['Intraday','Swing','Investment'] %}
+                <option value="{{ s }}" {{ 'selected' if filters.get('trade_style') == s }}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="day_of_week">Day of week</label>
+            <select id="day_of_week" name="day_of_week" class="select">
+              <option value="">All</option>
+              {% for d, lbl in [('0','Monday'),('1','Tuesday'),('2','Wednesday'),('3','Thursday'),('4','Friday')] %}
+                <option value="{{ d }}" {{ 'selected' if filters.get('day_of_week')|string == d }}>{{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="hour">Hour of day</label>
+            <select id="hour" name="hour" class="select">
+              <option value="">All</option>
+              {% for h in range(9, 24) %}
+                <option value="{{ h }}" {{ 'selected' if filters.get('hour')|string == h|string }}>{{ h }}:00</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="market">Market</label>
+            <select id="market" name="market" class="select">
+              <option value="">All</option>
+              {% for m in ['Equity','Equity Futures','Equity Options','Index Futures','Index Options','Commodity Futures','Commodity Options'] %}
+                <option value="{{ m }}" {{ 'selected' if filters.get('market') == m }}>{{ m }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="market_condition">Market condition</label>
+            <select id="market_condition" name="market_condition" class="select">
+              <option value="">All</option>
+              {% for c in ['Bullish Range','Bearish Range','Bullish Trending','Bearish Trending','Undecided','Volatile'] %}
+                <option value="{{ c }}" {{ 'selected' if filters.get('market_condition') == c }}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="setup_type">Setup type</label>
+            <input type="text" id="setup_type" name="setup_type" class="input"
+                   placeholder="e.g. breakout"
+                   value="{{ filters.get('setup_type', '') }}">
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="tags">Tags</label>
+            <input type="text" id="tags" name="tags" class="input"
+                   placeholder="Search tags"
+                   value="{{ filters.get('tags', '') }}">
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="date_from">Date from</label>
+            <input type="date" id="date_from" name="date_from" class="input"
+                   value="{{ filters.get('date_from', '') }}">
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="date_to">Date to</label>
+            <input type="date" id="date_to" name="date_to" class="input"
+                   value="{{ filters.get('date_to', '') }}">
+          </div>
+        </div>
+      </div>
+
+      {# Action buttons #}
+      <div class="flex flex-wrap gap-2 items-center pt-2 border-t border-[rgb(var(--border))]">
+        <button type="submit" class="btn btn-primary" id="compareBtn">
+          {{ icon('bar-chart-2', size=14) }} Compare strategies
+        </button>
+        <a href="/compare" class="btn btn-ghost">
+          {{ icon('rotate-ccw', size=14) }} Clear filters
+        </a>
+        <button type="button" class="btn btn-outline" data-action="show-load-template-modal">
+          {{ icon('folder-open', size=14) }} Load template
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
+
+{% if error_message %}
+  {% call alert(variant='warning') %}{{ error_message }}{% endcall %}
+{% endif %}
+
+{% if selected_strategies and selected_strategies|length >= 2 and comparison_data %}
+
+  {# Summary tiles #}
+  <section class="card mb-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-[rgb(var(--border))]">
+      <div class="p-5">
+        <div class="text-xs text-muted uppercase tracking-wider">Comparing</div>
+        <div class="mt-2 font-mono text-2xl font-medium">{{ selected_strategies|length }}</div>
+        <div class="text-xs text-muted mt-1">strategies</div>
+      </div>
+      <div class="p-5">
+        <div class="text-xs text-muted uppercase tracking-wider">Total trades</div>
+        <div class="mt-2 font-mono text-2xl font-medium">{{ total_trades_count }}</div>
+        <div class="text-xs text-muted mt-1">in sample</div>
+      </div>
+      <div class="p-5">
+        <div class="text-xs text-muted uppercase tracking-wider">Active filters</div>
+        <div class="mt-2 font-mono text-2xl font-medium {% if active_filters_count > 0 %}text-warn{% endif %}">
+          {{ active_filters_count }}
+        </div>
+        <div class="text-xs text-muted mt-1">applied</div>
+      </div>
+      <div class="p-5">
+        <div class="text-xs text-muted uppercase tracking-wider mb-2">Actions</div>
+        <div class="flex flex-wrap gap-2">
+          <a href="/compare/export?{{ request.query_string.decode('utf-8') }}"
+             class="btn btn-outline btn-sm" id="exportBtn">
+            {{ icon('download', size=12) }} CSV
+          </a>
+          <button type="button" class="btn btn-outline btn-sm" id="shareBtn" data-action="share-comparison">
+            {{ icon('share-2', size=12) }} Share
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" id="saveTemplateBtn" data-action="save-template">
+            {{ icon('save', size=12) }} Save
+          </button>
+        </div>
+        <div class="text-xs text-muted mt-2" id="shareStatus">Save filters as template</div>
+      </div>
+    </div>
+  </section>
+
+  {# Metrics comparison table #}
+  <section class="card mb-4">
+    <div class="card-header">
+      <h3 class="card-title">Metrics comparison</h3>
+      <p class="card-desc">Winner is highlighted per row — ties broken by first strategy.</p>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="data-table compare-table">
+        <thead>
+          <tr>
+            <th class="sticky-col">Metric</th>
+            {% for strategy in selected_strategies %}
+              <th class="text-center">{{ strategy }}</th>
+            {% endfor %}
+            <th class="text-center">Winner</th>
+          </tr>
+        </thead>
+        <tbody>
+
+          {# Total Trades #}
+          <tr>
+            <td class="sticky-col font-medium">Total trades</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}{{ comparison_data[strategy]['total_trades'] }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['total_trades'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['total_trades'] %}
+                  {% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Win rate #}
+          <tr>
+            <td class="sticky-col font-medium">Win rate</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {% set wr = comparison_data[strategy]['win_rate'] %}
+                  {{ badge(wr|round(1) ~ '%', tone='gain' if wr >= 50 else 'loss') }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['win_rate'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['win_rate'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Profit factor #}
+          <tr>
+            <td class="sticky-col font-medium">Profit factor</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {% set pf = comparison_data[strategy]['profit_factor'] %}
+                  {% if pf|string == 'inf' %}
+                    {{ badge('∞', tone='gain') }}
+                  {% else %}
+                    {% set t = 'gain' if pf > 1.5 else ('warn' if pf > 1 else 'loss') %}
+                    {{ badge(pf|round(2), tone=t) }}
+                  {% endif %}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['profit_factor'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['profit_factor'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Total P&L #}
+          <tr>
+            <td class="sticky-col font-medium">Total P&amp;L</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {% set p = comparison_data[strategy]['total_pnl'] %}
+                  <span class="font-medium {% if p > 0 %}text-gain{% else %}text-loss{% endif %}">
+                    {% if p >= 0 %}+{% else %}−{% endif %}₹{{ p|abs|round(2)|indian_number }}
+                  </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=-999999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['total_pnl'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['total_pnl'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Avg win #}
+          <tr>
+            <td class="sticky-col font-medium">Avg win</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  <span class="text-gain">₹{{ comparison_data[strategy]['avg_win']|round(2)|indian_number }}</span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['avg_win'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['avg_win'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Avg loss (smallest magnitude wins) #}
+          <tr>
+            <td class="sticky-col font-medium">Avg loss</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  <span class="text-loss">₹{{ comparison_data[strategy]['avg_loss']|round(2)|indian_number }}</span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=999999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['avg_loss'] < mv.value %}
+                  {% set mv.value = comparison_data[s]['avg_loss'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Expectancy #}
+          <tr>
+            <td class="sticky-col font-medium">Expectancy</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {% set e = comparison_data[strategy]['expectancy'] %}
+                  <span class="{% if e > 0 %}text-gain{% else %}text-loss{% endif %}">
+                    ₹{{ e|round(2)|indian_number }}
+                  </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=-999999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['expectancy'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['expectancy'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Sharpe #}
+          <tr>
+            <td class="sticky-col font-medium">Sharpe ratio</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {% set sr = comparison_data[strategy]['sharpe_ratio'] %}
+                  <span class="{% if sr > 1 %}text-gain{% elif sr > 0 %}text-warn{% else %}text-loss{% endif %}">
+                    {{ sr|round(2) }}
+                  </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=-999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['sharpe_ratio'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['sharpe_ratio'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Max drawdown #}
+          <tr>
+            <td class="sticky-col font-medium">Max drawdown</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  <span class="text-loss">−{{ comparison_data[strategy]['max_drawdown_percent']|round(2) }}%</span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['max_drawdown_percent'] < mv.value %}
+                  {% set mv.value = comparison_data[s]['max_drawdown_percent'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Avg duration #}
+          <tr>
+            <td class="sticky-col font-medium">Avg duration</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {% if filters.get('trade_style') == 'Intraday' %}
+                    {{ comparison_data[strategy]['avg_duration_hours']|round(2) }}h
+                  {% else %}
+                    {{ comparison_data[strategy]['avg_duration_days']|round(1) }}d
+                  {% endif %}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center text-muted">—</td>
+          </tr>
+
+          {# Section divider #}
+          <tr class="compare-section">
+            <td colspan="{{ selected_strategies|length + 2 }}"
+                class="text-xs text-muted uppercase tracking-wider font-medium py-3 bg-[rgb(var(--elev))]">
+              Advanced metrics
+            </td>
+          </tr>
+
+          {# Sortino #}
+          <tr>
+            <td class="sticky-col font-medium">Sortino ratio</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {% set sr = comparison_data[strategy]['sortino_ratio'] %}
+                  {% if sr|string == 'inf' %}
+                    {{ badge('∞', tone='gain') }}
+                  {% else %}
+                    <span class="{% if sr > 1 %}text-gain{% elif sr > 0 %}text-warn{% else %}text-loss{% endif %}">
+                      {{ sr|round(2) }}
+                    </span>
+                  {% endif %}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=-999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['sortino_ratio'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['sortino_ratio'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Kelly #}
+          <tr>
+            <td class="sticky-col font-medium">Kelly criterion</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {{ (comparison_data[strategy]['kelly_criterion'] * 100)|round(1) }}%
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['kelly_criterion'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['kelly_criterion'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Avg R-Multiple #}
+          <tr>
+            <td class="sticky-col font-medium">Avg R-multiple</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  {% set r = comparison_data[strategy]['avg_r_multiple'] %}
+                  <span class="{% if r > 0 %}text-gain{% else %}text-loss{% endif %}">
+                    {{ r|round(2) }}R
+                  </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=-999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['avg_r_multiple'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['avg_r_multiple'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Recovery factor #}
+          <tr>
+            <td class="sticky-col font-medium">Recovery factor</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}{{ comparison_data[strategy]['recovery_factor']|round(2) }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['recovery_factor'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['recovery_factor'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Payoff ratio #}
+          <tr>
+            <td class="sticky-col font-medium">Payoff ratio</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}{{ comparison_data[strategy]['payoff_ratio']|round(2) }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['payoff_ratio'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['payoff_ratio'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Best trade #}
+          <tr>
+            <td class="sticky-col font-medium">Best trade</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  <span class="text-gain">+₹{{ comparison_data[strategy]['best_trade']|round(2)|indian_number }}</span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['best_trade'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['best_trade'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Worst trade #}
+          <tr>
+            <td class="sticky-col font-medium">Worst trade</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  <span class="text-loss">₹{{ comparison_data[strategy]['worst_trade']|round(2)|indian_number }}</span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=-999999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['worst_trade'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['worst_trade'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Max consecutive wins #}
+          <tr>
+            <td class="sticky-col font-medium">Max consecutive wins</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}{{ comparison_data[strategy]['max_consecutive_wins'] }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=0, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['max_consecutive_wins'] > mv.value %}
+                  {% set mv.value = comparison_data[s]['max_consecutive_wins'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Max consecutive losses #}
+          <tr>
+            <td class="sticky-col font-medium">Max consecutive losses</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}{{ comparison_data[strategy]['max_consecutive_losses'] }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['max_consecutive_losses'] < mv.value %}
+                  {% set mv.value = comparison_data[s]['max_consecutive_losses'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+          {# Standard deviation #}
+          <tr>
+            <td class="sticky-col font-medium">Standard deviation</td>
+            {% for strategy in selected_strategies %}
+              <td class="num">
+                {% if comparison_data[strategy] %}
+                  ₹{{ comparison_data[strategy]['standard_deviation']|round(2)|indian_number }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center">
+              {% set mv = namespace(value=999999, strategy='') %}
+              {% for s in selected_strategies %}
+                {% if comparison_data[s] and comparison_data[s]['standard_deviation'] < mv.value %}
+                  {% set mv.value = comparison_data[s]['standard_deviation'] %}{% set mv.strategy = s %}
+                {% endif %}
+              {% endfor %}
+              {{ badge(mv.strategy, tone='warn') }}
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {# Visual comparisons #}
+  <section class="card mb-4">
+    <div class="card-header">
+      <h3 class="card-title">Visual comparisons</h3>
+      <p class="card-desc">Win rate, total P&amp;L and avg win vs avg loss.</p>
+    </div>
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <div class="text-xs text-muted uppercase tracking-wider mb-3">Win rate</div>
+        <div id="winrate-comparison-chart" style="height: 320px;"></div>
+      </div>
+      <div>
+        <div class="text-xs text-muted uppercase tracking-wider mb-3">Total P&amp;L</div>
+        <div id="pnl-comparison-chart" style="height: 320px;"></div>
+      </div>
+      <div class="md:col-span-2">
+        <div class="text-xs text-muted uppercase tracking-wider mb-3">Avg win vs avg loss</div>
+        <div id="win-loss-comparison-chart" style="height: 360px;"></div>
+      </div>
+    </div>
+  </section>
+
+{% endif %}
+
+{# Load template modal #}
+{% call modal(id='loadTemplateModal', title='Saved templates', size='md') %}
+  <div id="templateList"></div>
+{% endcall %}
+
+{# Custom styles for sticky column + compare table polish #}
+<style>
+  .compare-table .sticky-col {
+    position: sticky;
+    left: 0;
+    background: rgb(var(--bg));
+    z-index: 1;
+    border-right: 1px solid rgb(var(--border));
+  }
+  .compare-table tbody tr:hover .sticky-col {
+    background: rgb(var(--elev));
+  }
+  .compare-table tr.compare-section td {
+    border-top: 1px solid rgb(var(--border));
+    border-bottom: 1px solid rgb(var(--border));
+  }
+  .template-item {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; padding: 0.75rem 1rem;
+    border: 1px solid rgb(var(--border));
+    border-radius: 0.5rem;
+    background: rgb(var(--bg));
+  }
+  .template-item + .template-item { margin-top: 0.5rem; }
+  .template-item .name { font-weight: 500; font-size: 0.875rem; }
+  .template-item .meta { font-size: 0.75rem; color: rgb(var(--muted)); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+// Strategy selection validation
+document.addEventListener('DOMContentLoaded', function() {
+  const compareBtn = document.getElementById('compareBtn');
+  const checkboxes = document.querySelectorAll('.strategy-checkbox');
+  if (!compareBtn) return;
+
+  function validateSelection() {
+    const checked = document.querySelectorAll('.strategy-checkbox:checked').length;
+    if (checked < 2) {
+      compareBtn.disabled = true;
+      compareBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Select at least 2 strategies';
+    } else if (checked > 5) {
+      compareBtn.disabled = true;
+      compareBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Maximum 5 strategies';
+    } else {
+      compareBtn.disabled = false;
+      compareBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Compare strategies';
+    }
+  }
+  checkboxes.forEach(cb => cb.addEventListener('change', validateSelection));
+  validateSelection();
+});
+
+// Share comparison — copy URL
+function shareComparison() {
+  const url = window.location.href;
+  const done = () => showShareFeedback('Link copied!', 'gain');
+  const fail = () => showShareFeedback('Failed to copy', 'loss');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done, fail));
+  } else {
+    fallbackCopy(url, done, fail);
+  }
+}
+function fallbackCopy(text, done, fail) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch (_) { fail(); }
+  document.body.removeChild(ta);
+}
+function showShareFeedback(msg, tone) {
+  const el = document.getElementById('shareStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'text-xs mt-2 ' + (tone === 'gain' ? 'text-gain' : 'text-loss');
+  setTimeout(() => { el.textContent = 'Save filters as template'; el.className = 'text-xs text-muted mt-2'; }, 3000);
+}
+
+// Template management (localStorage)
+function saveTemplate() {
+  const name = prompt('Name this template:');
+  if (!name || !name.trim()) return;
+  const template = { name: name.trim(), url: window.location.search, timestamp: new Date().toISOString() };
+  const templates = JSON.parse(localStorage.getItem('comparisonTemplates') || '[]');
+  templates.push(template);
+  localStorage.setItem('comparisonTemplates', JSON.stringify(templates));
+  showShareFeedback('Template saved!', 'gain');
+}
+
+function showLoadTemplateModal() {
+  const templates = JSON.parse(localStorage.getItem('comparisonTemplates') || '[]');
+  const list = document.getElementById('templateList');
+  if (!list) return;
+  if (templates.length === 0) {
+    list.innerHTML = '<p class="text-sm text-muted text-center py-6">No saved templates yet.</p>';
+  } else {
+    let html = '';
+    templates.forEach((t, i) => {
+      const d = new Date(t.timestamp).toLocaleDateString();
+      const safeName = (t.name || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+      html += `
+        <div class="template-item">
+          <div>
+            <div class="name">${safeName}</div>
+            <div class="meta">Saved ${d}</div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" class="btn btn-primary btn-sm" data-action="load-template" data-index="${i}">Load</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="delete-template" data-index="${i}">Delete</button>
+          </div>
+        </div>`;
+    });
+    list.innerHTML = html;
+  }
+  openModal('loadTemplateModal');
+}
+
+function loadTemplate(index) {
+  const templates = JSON.parse(localStorage.getItem('comparisonTemplates') || '[]');
+  if (templates[index]) window.location.href = '/compare' + templates[index].url;
+}
+
+function deleteTemplate(index) {
+  if (!confirm('Delete this template?')) return;
+  const templates = JSON.parse(localStorage.getItem('comparisonTemplates') || '[]');
+  templates.splice(index, 1);
+  localStorage.setItem('comparisonTemplates', JSON.stringify(templates));
+  showLoadTemplateModal();
+}
+
+{% if selected_strategies and selected_strategies|length >= 2 and comparison_data %}
+// ---------- Plotly charts ----------
+const strategies = {{ selected_strategies|tojson }};
+const comparisonData = {{ comparison_data|tojson }};
+
+function _pal() {
+  const css = getComputedStyle(document.documentElement);
+  const rgb = (k, fb) => {
+    const v = (css.getPropertyValue(k) || '').trim();
+    return v ? `rgb(${v})` : fb;
+  };
+  return {
+    gain:   rgb('--gain',   'rgb(16,185,129)'),
+    loss:   rgb('--loss',   'rgb(239,68,68)'),
+    warn:   rgb('--warn',   'rgb(234,179,8)'),
+    info:   rgb('--info',   'rgb(59,130,246)'),
+    muted:  rgb('--muted',  'rgb(113,113,122)'),
+    accent: rgb('--accent', 'rgb(16,185,129)'),
+    ink:    rgb('--ink',    'rgb(24,24,27)'),
+  };
+}
+
+// Deterministic per-index palette (cycles through accent + info + warn + loss + muted)
+function strategyColor(idx) {
+  const p = _pal();
+  const palette = [p.accent, p.info, p.warn, p.loss, p.muted];
+  return palette[idx % palette.length];
+}
+
+function renderCompareCharts() {
+  const p = _pal();
+  const winRates = strategies.map(s => comparisonData[s] ? comparisonData[s].win_rate : 0);
+  const wrColors = strategies.map((_, i) => strategyColor(i));
+
+  Plotly.react('winrate-comparison-chart', [{
+    x: strategies, y: winRates, type: 'bar',
+    marker: { color: wrColors },
+    text: winRates.map(w => w.toFixed(1) + '%'),
+    textposition: 'auto',
+    hovertemplate: '%{x}<br>%{y:.1f}%<extra></extra>'
+  }], getThemedLayout({
+    margin: { t: 10, r: 20, b: 60, l: 50 },
+    xaxis: { title: '' },
+    yaxis: { title: 'Win rate (%)', range: [0, 100] },
+    showlegend: false
+  }), { responsive: true, displayModeBar: false });
+
+  const totalPnls = strategies.map(s => comparisonData[s] ? comparisonData[s].total_pnl : 0);
+  const pnlColors = totalPnls.map(v => v >= 0 ? p.gain : p.loss);
+
+  Plotly.react('pnl-comparison-chart', [{
+    x: strategies, y: totalPnls, type: 'bar',
+    marker: { color: pnlColors },
+    text: totalPnls.map(v => '₹' + v.toFixed(0)),
+    textposition: 'auto',
+    hovertemplate: '%{x}<br>₹%{y:,.2f}<extra></extra>'
+  }], getThemedLayout({
+    margin: { t: 10, r: 20, b: 60, l: 60 },
+    xaxis: { title: '' },
+    yaxis: { title: 'Total P&L (₹)' },
+    showlegend: false
+  }), { responsive: true, displayModeBar: false });
+
+  const avgWins = strategies.map(s => comparisonData[s] ? comparisonData[s].avg_win : 0);
+  const avgLosses = strategies.map(s => comparisonData[s] ? Math.abs(comparisonData[s].avg_loss) : 0);
+
+  Plotly.react('win-loss-comparison-chart', [
+    {
+      x: strategies, y: avgWins, name: 'Avg win', type: 'bar',
+      marker: { color: p.gain },
+      text: avgWins.map(w => '₹' + w.toFixed(0)),
+      textposition: 'auto',
+      hovertemplate: '%{x}<br>Avg win: ₹%{y:,.2f}<extra></extra>'
+    },
+    {
+      x: strategies, y: avgLosses, name: 'Avg loss', type: 'bar',
+      marker: { color: p.loss },
+      text: avgLosses.map(l => '₹' + l.toFixed(0)),
+      textposition: 'auto',
+      hovertemplate: '%{x}<br>Avg loss: ₹%{y:,.2f}<extra></extra>'
+    }
+  ], getThemedLayout({
+    barmode: 'group',
+    margin: { t: 30, r: 20, b: 60, l: 60 },
+    xaxis: { title: '' },
+    yaxis: { title: 'Amount (₹)' },
+    legend: { orientation: 'h', y: 1.12, x: 0.5, xanchor: 'center' }
+  }), { responsive: true, displayModeBar: false });
+}
+
+document.addEventListener('DOMContentLoaded', renderCompareCharts);
+window.addEventListener('themeChanged', renderCompareCharts);
+{% endif %}
+</script>
+{% endblock %}

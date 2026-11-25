@@ -1,0 +1,110 @@
+{# -----------------------------------------------------------------------------
+  Detailed performance metrics — collapsible card with a scrollable data table.
+  ----------------------------------------------------------------------------- #}
+{% from 'components/metric.html' import pnl %}
+{% from 'components/icon.html' import icon %}
+
+{% macro _section_row(label) -%}
+  <tr>
+    <td colspan="3" class="bg-[rgb(var(--elev))] text-xs text-muted uppercase tracking-wider font-medium !py-2">
+      {{ label }}
+    </td>
+  </tr>
+{%- endmacro %}
+
+<section class="card">
+  <details class="group">
+    <summary class="card-header flex items-center justify-between gap-4 cursor-pointer list-none select-none hover:bg-[rgb(var(--hover))] transition">
+      <div>
+        <h3 class="card-title">Detailed performance metrics</h3>
+        <p class="card-desc">All computed stats across every category.</p>
+      </div>
+      <span class="text-muted group-open:rotate-180 transition-transform">{{ icon('chevron-down', size=18) }}</span>
+    </summary>
+
+    <div class="overflow-x-auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 38%;">Metric</th>
+            <th style="width: 18%;" class="num">Value</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ _section_row('General statistics') }}
+          <tr><td>Total trades</td>     <td class="num">{{ stats.total_trades }}</td>     <td class="text-muted">Total number of trades executed</td></tr>
+          <tr><td>Winning trades</td>   <td class="num">{{ stats.winning_trades }}</td>   <td class="text-muted">Number of profitable trades</td></tr>
+          <tr><td>Losing trades</td>    <td class="num">{{ stats.losing_trades }}</td>    <td class="text-muted">Number of losing trades</td></tr>
+          <tr><td>Breakeven trades</td> <td class="num">{{ stats.breakeven_trades }}</td> <td class="text-muted">Trades with zero profit/loss</td></tr>
+          <tr><td>Win rate</td>         <td class="num">{{ stats.win_rate|round(2) }}%</td><td class="text-muted">Percentage of winning trades (wins ÷ total)</td></tr>
+
+          {{ _section_row('Profitability metrics') }}
+          <tr><td>Total P&amp;L</td>   <td class="num">{{ pnl(stats.total_pnl,               unit='₹', digits=0) }}</td><td class="text-muted">Net profit/loss across all trades</td></tr>
+          <tr><td>Gross profit</td>    <td class="num">{{ pnl(stats.get('gross_profit', 0),  unit='₹', digits=0) }}</td><td class="text-muted">Sum of all winning trades</td></tr>
+          <tr><td>Gross loss</td>      <td class="num">{{ pnl(-(stats.get('gross_loss', 0)|abs), unit='₹', digits=0) }}</td><td class="text-muted">Sum of all losing trades</td></tr>
+          <tr>
+            <td>Profit factor</td>
+            <td class="num">{% if stats.profit_factor_display == '∞' %}∞{% else %}{{ stats.profit_factor|round(2) }}{% endif %}</td>
+            <td class="text-muted">Gross profit ÷ gross loss (&gt;2.0 is excellent)</td>
+          </tr>
+          <tr><td>Average win</td>      <td class="num">{{ pnl(stats.average_win,                 unit='₹', digits=0) }}</td><td class="text-muted">Average profit per winning trade</td></tr>
+          <tr><td>Average loss</td>     <td class="num">{{ pnl(-(stats.average_loss|abs),         unit='₹', digits=0) }}</td><td class="text-muted">Average loss per losing trade</td></tr>
+          <tr><td>Largest win</td>      <td class="num">{{ pnl(stats.largest_win,                 unit='₹', digits=0) }}</td><td class="text-muted">Best single trade profit</td></tr>
+          <tr><td>Largest loss</td>     <td class="num">{{ pnl(-(stats.largest_loss|abs),         unit='₹', digits=0) }}</td><td class="text-muted">Worst single trade loss</td></tr>
+          <tr><td>Win / loss ratio</td> <td class="num">{{ stats.win_loss_ratio|round(2) }}</td>                             <td class="text-muted">Average win ÷ average loss</td></tr>
+          <tr><td>Expectancy</td>       <td class="num">{{ pnl(stats.expectancy,                  unit='₹', digits=0) }}</td><td class="text-muted">Expected profit per trade</td></tr>
+
+          {{ _section_row('Risk metrics') }}
+          <tr><td>Average R-multiple</td> <td class="num">{{ stats.average_r_multiple|round(2) }}R</td>        <td class="text-muted">Average reward-to-risk ratio (&gt;1.0 is profitable)</td></tr>
+          <tr><td>Max drawdown (%)</td>   <td class="num">{{ stats.max_drawdown_percent|round(2) }}%</td>       <td class="text-muted">Largest peak-to-trough decline (%)</td></tr>
+          <tr><td>Max drawdown (₹)</td>   <td class="num">₹{{ stats.max_drawdown_amount|abs|indian_number }}</td><td class="text-muted">Largest peak-to-trough decline (₹)</td></tr>
+          <tr><td>Sharpe ratio</td>       <td class="num">{{ stats.sharpe_ratio|round(2) }}</td>                <td class="text-muted">Risk-adjusted return (&gt;1.0 good, &gt;2.0 excellent)</td></tr>
+          <tr>
+            <td>Kelly criterion</td>
+            <td class="num">{% if stats.get('kelly_negative') %}—{% else %}{{ stats.get('kelly_percentage', 0)|round(2) }}%{% endif %}</td>
+            <td class="text-muted">
+              {% if stats.get('kelly_negative') %}No statistical edge — do not trade{% else %}Optimal position size (capped at 25%){% endif %}
+            </td>
+          </tr>
+
+          {{ _section_row('Streak analysis') }}
+          <tr>
+            <td>Current streak</td>
+            <td class="num">{{ stats.current_streak }} {{ stats.current_streak_type or '—' }}</td>
+            <td class="text-muted">Current consecutive wins or losses</td>
+          </tr>
+          <tr><td>Max consecutive wins</td>   <td class="num">{{ stats.max_consecutive_wins }}</td>   <td class="text-muted">Longest winning streak</td></tr>
+          <tr><td>Max consecutive losses</td> <td class="num">{{ stats.max_consecutive_losses }}</td> <td class="text-muted">Longest losing streak</td></tr>
+
+          {% if stats.get('avg_intraday_duration_hours') or stats.get('avg_swing_duration_days') %}
+          {{ _section_row('Time-based metrics') }}
+          {% if stats.get('avg_intraday_duration_hours') and stats.avg_intraday_duration_hours > 0 %}
+          <tr><td>Avg intraday duration</td>         <td class="num">{{ stats.avg_intraday_duration_hours|round(2) }}h</td>  <td class="text-muted">Average holding time for intraday trades</td></tr>
+          {% endif %}
+          {% if stats.get('avg_swing_duration_days') and stats.avg_swing_duration_days > 0 %}
+          <tr><td>Avg swing / investment duration</td><td class="num">{{ stats.avg_swing_duration_days|round(1) }}d</td>    <td class="text-muted">Average holding time for swing/investment trades</td></tr>
+          {% endif %}
+          <tr><td>Avg daily P&amp;L</td>             <td class="num">{{ pnl(stats.get('avg_daily_pnl', 0), unit='₹', digits=0) }}</td><td class="text-muted">Average profit/loss per trading day</td></tr>
+          {% endif %}
+
+          {{ _section_row('Statistical metrics') }}
+          <tr><td>Standard deviation</td> <td class="num">₹{{ stats.get('std_deviation', 0)|indian_number }}</td>        <td class="text-muted">Volatility of returns</td></tr>
+          <tr><td>Median P&amp;L</td>     <td class="num">{{ pnl(stats.get('median_pnl', 0), unit='₹', digits=0) }}</td> <td class="text-muted">Middle value of all trade P&amp;Ls</td></tr>
+
+          {{ _section_row('Return on investment') }}
+          <tr>
+            <td>Total ROI</td>
+            <td class="num">{% if stats.total_capital_deployed > 0 %}{{ ((stats.total_pnl / stats.total_capital_deployed) * 100)|round(2) }}%{% else %}0.00%{% endif %}</td>
+            <td class="text-muted">Return on total capital deployed</td>
+          </tr>
+          <tr>
+            <td>Avg ROI per trade</td>
+            <td class="num">{{ stats.get('avg_roi_per_trade', 0)|round(2) }}%</td>
+            <td class="text-muted">Average return per trade as % of capital</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>

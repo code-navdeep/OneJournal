@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Portfolio · OneJournal{% endblock %}
+
+{% block content %}
+{% from 'components/badge.html' import badge %}
+{% from 'components/icon.html' import icon %}
+{% from 'components/alert.html' import alert %}
+{% from 'components/modal.html' import modal %}
+
+<header class="flex items-end justify-between gap-6 flex-wrap mb-6">
+  <div>
+    <h1>Portfolio</h1>
+    <p class="text-sm text-muted mt-1">Cash flow, P&amp;L breakdown and capital tracking.</p>
+  </div>
+  <button class="btn btn-primary" data-action="open-modal" data-modal="cashModal">
+    {{ icon('plus', size=14) }} Cash transaction
+  </button>
+</header>
+
+{# Summary KPIs #}
+<section class="card mb-4">
+  <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-[rgb(var(--border))]">
+    <div class="p-5">
+      <div class="text-xs text-muted uppercase tracking-wider">Total equity</div>
+      <div class="mt-2 font-mono text-2xl font-medium">₹{{ portfolio.total_equity|indian_number }}</div>
+      <div class="text-xs text-muted mt-1">Cash + open positions</div>
+    </div>
+    <div class="p-5">
+      <div class="text-xs text-muted uppercase tracking-wider">Cash balance</div>
+      <div class="mt-2 font-mono text-2xl font-medium">₹{{ portfolio.cash_balance|indian_number }}</div>
+      <div class="text-xs text-muted mt-1">Available for new trades</div>
+    </div>
+    <div class="p-5">
+      <div class="text-xs text-muted uppercase tracking-wider">Open positions</div>
+      <div class="mt-2 font-mono text-2xl font-medium">₹{{ portfolio.open_positions_value|indian_number }}</div>
+      <div class="text-xs text-muted mt-1">
+        {{ portfolio.open_positions_count }} position{{ 's' if portfolio.open_positions_count != 1 else '' }}
+      </div>
+    </div>
+    <div class="p-5">
+      <div class="text-xs text-muted uppercase tracking-wider">Lifetime P&amp;L</div>
+      <div class="mt-2 font-mono text-2xl font-medium {% if portfolio.lifetime_pnl >= 0 %}text-gain{% else %}text-loss{% endif %}">
+        {% if portfolio.lifetime_pnl >= 0 %}+{% else %}−{% endif %}₹{{ portfolio.lifetime_pnl|abs|indian_number }}
+      </div>
+      <div class="text-xs text-muted mt-1">
+        {% if portfolio.total_capital_deployed > 0 %}
+          <span data-tooltip="ROI = Lifetime P&L ÷ Total Capital Deployed">
+            {{ "%.2f"|format((portfolio.lifetime_pnl / portfolio.total_capital_deployed) * 100) }}% ROI
+          </span>
+        {% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{# P&L breakdown #}
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Realized P&amp;L</h3>
+      <p class="card-desc">From closed positions.</p>
+    </div>
+    <div class="card-body">
+      <div class="font-mono text-3xl font-medium {% if portfolio.realized_pnl >= 0 %}text-gain{% else %}text-loss{% endif %}">
+        {% if portfolio.realized_pnl >= 0 %}+{% else %}−{% endif %}₹{{ portfolio.realized_pnl|abs|indian_number }}
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Unrealized P&amp;L</h3>
+      <p class="card-desc">From open positions at last marked price.</p>
+    </div>
+    <div class="card-body">
+      <div class="font-mono text-3xl font-medium {% if portfolio.unrealized_pnl >= 0 %}text-gain{% else %}text-loss{% endif %}">
+        {% if portfolio.unrealized_pnl >= 0 %}+{% else %}−{% endif %}₹{{ portfolio.unrealized_pnl|abs|indian_number }}
+      </div>
+      <div class="text-xs text-muted mt-3">
+        <a href="/positions" class="link">Update position prices</a> to recalculate.
+      </div>
+    </div>
+  </div>
+</section>
+
+{# Capital breakdown #}
+<section class="card mb-4">
+  <div class="card-header">
+    <h3 class="card-title">Capital breakdown</h3>
+    <p class="card-desc">How capital is tracked for ROI calculation.</p>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[rgb(var(--border))]">
+    <div class="p-5">
+      <div class="flex items-center gap-2 text-xs text-muted uppercase tracking-wider">
+        {{ icon('layers', size=12) }} Starting balance
+      </div>
+      <div class="mt-2 font-mono text-xl font-medium">₹{{ portfolio.starting_balance_locked|indian_number }}</div>
+      <div class="text-xs text-muted mt-1">Deposits before first trade — locked.</div>
+    </div>
+    <div class="p-5 bg-[rgb(var(--elev))]">
+      <div class="flex items-center gap-2 text-xs text-muted uppercase tracking-wider">
+        {{ icon('pie-chart', size=12) }} Total capital deployed
+      </div>
+      <div class="mt-2 font-mono text-xl font-medium">₹{{ portfolio.total_capital_deployed|indian_number }}</div>
+      <div class="text-xs text-muted mt-1">All deposits &amp; withdrawals — basis for ROI.</div>
+    </div>
+    <div class="p-5">
+      <div class="flex items-center gap-2 text-xs text-muted uppercase tracking-wider">
+        {{ icon('plus', size=12) }} Additional capital
+      </div>
+      <div class="mt-2 font-mono text-xl font-medium">₹{{ portfolio.additional_capital|indian_number }}</div>
+      <div class="text-xs text-muted mt-1">Deposits after trading began.</div>
+    </div>
+  </div>
+  <div class="card-body border-t border-[rgb(var(--border))]">
+    {% call alert(variant='info') %}
+      <strong>How it works:</strong> Starting balance is locked after your first trade and never changes.
+      Total capital deployed includes all deposits/withdrawals and drives ROI. Additional capital shows deposits made after trading began.
+    {% endcall %}
+  </div>
+</section>
+
+{# Cash transactions history #}
+<section class="card">
+  <div class="card-header flex items-center justify-between gap-4">
+    <div>
+      <h3 class="card-title">Cash transaction history</h3>
+      <p class="card-desc">Every deposit, withdrawal, dividend and fee on record.</p>
+    </div>
+    <button class="btn btn-ghost btn-sm" data-action="open-modal" data-modal="cashModal">
+      {{ icon('plus', size=14) }} Add
+    </button>
+  </div>
+
+  {% if cash_transactions %}
+    <div class="overflow-x-auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th class="num">Amount</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in cash_transactions %}
+            <tr>
+              <td class="font-num">{{ txn['date'] }}</td>
+              <td>{{ badge(txn['type']|capitalize, tone='gain' if txn['amount'] > 0 else 'loss') }}</td>
+              <td class="num font-medium {% if txn['amount'] > 0 %}text-gain{% else %}text-loss{% endif %}">
+                {% if txn['amount'] > 0 %}+{% else %}−{% endif %}₹{{ txn['amount']|abs|indian_number }}
+              </td>
+              <td class="text-sm text-muted">{{ txn['description'] or '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body">
+      {% call alert(variant='info', title='No cash transactions yet') %}
+        Add your starting capital to enable ROI and equity curve calculations.
+      {% endcall %}
+    </div>
+  {% endif %}
+</section>
+
+{# Add cash transaction modal #}
+{% call modal(id='cashModal', title='Add cash transaction', size='md') %}
+  {% call alert(variant='info') %}
+    Deposits made before your first trade become your locked starting balance.
+  {% endcall %}
+  {% call alert(variant='warning') %}
+    <strong>Setting up with existing positions?</strong> Deposit your <em>total capital</em>
+    (free cash + position values) with a date <em>before</em> your earliest entry.
+  {% endcall %}
+
+  <form id="cash-form" hx-post="/portfolio/cash-transaction" hx-target="#cash-form-response"
+        class="flex flex-col gap-4 mt-4">
+    <div class="field-group">
+      <label class="field-label">Transaction type <span class="req">*</span></label>
+      <select class="select" name="type" required>
+        <option value="">Select type…</option>
+        <option value="deposit">Deposit — add funds</option>
+        <option value="withdrawal">Withdrawal — remove funds</option>
+        <option value="dividend">Dividend / interest</option>
+        <option value="fees">Account fees</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Amount <span class="req">*</span></label>
+      <input type="number" class="input" name="amount" step="0.01" required>
+      <div class="field-help">Enter a positive number — the sign is applied automatically.</div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Date <span class="req">*</span></label>
+      <input type="text" class="input datepicker" name="date" placeholder="DD/MM/YYYY" required>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Description</label>
+      <textarea class="textarea" name="description" rows="2" placeholder="e.g., Monthly salary deposit"></textarea>
+    </div>
+
+    <div id="cash-form-response"></div>
+
+    <div class="flex justify-end gap-2">
+      <button type="button" class="btn btn-ghost" data-action="close-modal" data-modal="cashModal">Cancel</button>
+      <button type="submit" class="btn btn-primary">{{ icon('check', size=14) }} Add transaction</button>
+    </div>
+  </form>
+{% endcall %}
+
+<script nonce="{{ csp_nonce }}">
+  document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'cash-form-response') {
+      if (event.detail.xhr.responseText.includes('alert-success')) {
+        setTimeout(() => { closeModal('cashModal'); location.reload(); }, 1200);
+      }
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+{# -----------------------------------------------------------------------------
+  Panel macro — shadcn card with optional header and footer
+  Usage:
+    {% from 'components/panel.html' import panel %}
+    {% call panel(title='Recent trades', actions='<a href="/all-trades" class="link">See all</a>') %}
+      ... content ...
+    {% endcall %}
+
+  Options:
+    title       — card title text
+    desc        — optional description under title
+    actions     — right-aligned action HTML (links, buttons)
+    cls         — extra classes on the root .card
+    body_cls    — extra classes on .card-body (set '' to omit padding)
+    no_body     — render caller() directly without .card-body wrapper
+  ----------------------------------------------------------------------------- #}
+
+{% macro panel(title=None, desc=None, actions=None, cls='', body_cls='', no_body=False) -%}
+  <section class="card {{ cls }}">
+    {% if title or actions or desc %}
+      <header class="card-header flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          {% if title %}<h3 class="card-title">{{ title }}</h3>{% endif %}
+          {% if desc  %}<p class="card-desc">{{ desc | safe }}</p>{% endif %}
+        </div>
+        {% if actions %}<div class="flex items-center gap-2 shrink-0">{{ actions | safe }}</div>{% endif %}
+      </header>
+    {% endif %}
+    {% if no_body %}
+      {{ caller() }}
+    {% else %}
+      <div class="card-body {{ body_cls }}">{{ caller() }}</div>
+    {% endif %}
+  </section>
+{%- endmacro %}

@@ -1,0 +1,41 @@
+{# -----------------------------------------------------------------------------
+  Recent activity — list of recent trades, click-to-view via HTMX.
+  ----------------------------------------------------------------------------- #}
+{% from 'components/panel.html' import panel %}
+{% from 'components/metric.html' import pnl %}
+{% from 'components/icon.html' import icon %}
+
+{% call panel(title='Recent activity', actions=('<a href="/all-trades" class="link text-sm">View all →</a>' if recent_trades and recent_trades|length > 0 else None), body_cls='p-0') %}
+  {% if recent_trades and recent_trades|length > 0 %}
+    <ul class="divide-y max-h-[420px] overflow-y-auto" style="border-color: rgb(var(--border));">
+      {% for trade in recent_trades %}
+        <li class="px-5 py-3 cursor-pointer transition hover:bg-[rgb(var(--hover))]"
+            hx-get="/trades/{{ trade.trade_id }}/view"
+            hx-target="#modal-container"
+            hx-swap="innerHTML">
+          <div class="flex items-baseline justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-baseline gap-2 min-w-0">
+                <span class="font-medium truncate">{{ trade.symbol }}</span>
+                <span class="badge badge-muted">{{ trade.direction }}</span>
+              </div>
+              <div class="text-xs text-muted truncate mt-0.5 font-num">
+                {{ trade.strategy or '—' }}
+              </div>
+            </div>
+            <div class="text-right whitespace-nowrap">
+              <div class="font-num text-sm">{{ pnl(trade.net_pnl, unit='₹', digits=0) }}</div>
+              <div class="text-[0.6875rem] text-muted font-num mt-0.5">{{ trade.time_ago }}</div>
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty">
+      <div class="empty-icon">{{ icon('table', size=20) }}</div>
+      <div class="empty-title">No recent trades</div>
+      <div class="empty-desc">Recent activity will appear here.</div>
+    </div>
+  {% endif %}
+{% endcall %}

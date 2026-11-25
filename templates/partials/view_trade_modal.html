@@ -1,0 +1,176 @@
+{% from 'components/badge.html' import badge %}
+{% from 'components/icon.html' import icon %}
+
+<div class="modal" style="display:flex;" role="dialog" aria-modal="true"
+     data-action="modal-container-backdrop">
+  <div class="modal-panel modal-panel-xl">
+    <div class="modal-header">
+      <h3 class="modal-title">Trade details · {{ trade.symbol }}</h3>
+      <button type="button" class="modal-close"
+              data-action="clear-modal-container"
+              aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body flex flex-col gap-5">
+
+      {# Basic information #}
+      <section>
+        <h4 class="text-xs text-muted uppercase tracking-wider font-medium mb-3">Basic information</h4>
+        <dl class="kv-list">
+          <dt>Date</dt>
+          <dd>{{ trade.date|indian_date }}{% if trade.time %} <span class="text-muted text-xs">· {{ trade.time }}</span>{% endif %}</dd>
+          <dt>Symbol</dt>
+          <dd>{{ trade.symbol }}{% if trade.market %} <span class="text-muted text-xs">· {{ trade.market }}{% if trade.option_type %} · {{ trade.option_type }}{% endif %}</span>{% endif %}</dd>
+          <dt>Direction</dt>
+          <dd>{{ badge(trade.direction, tone='gain' if trade.direction == 'Long' else 'loss') }}</dd>
+          <dt>Strategy</dt>
+          <dd>{% if trade.strategy %}{{ badge(trade.strategy, tone='info') }}{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+        </dl>
+      </section>
+
+      {# Price & P&L #}
+      <section>
+        <h4 class="text-xs text-muted uppercase tracking-wider font-medium mb-3">Price &amp; P&amp;L</h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <div class="text-xs text-muted">Avg entry</div>
+            <div class="num font-medium">₹{{ (trade.average_entry_price or trade.entry_price or 0)|indian_number }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted">Avg exit</div>
+            <div class="num font-medium">
+              {% if trade.average_exit_price or trade.exit_price %}
+                ₹{{ (trade.average_exit_price or trade.exit_price)|indian_number }}
+              {% else %}<span class="text-muted">Open</span>{% endif %}
+            </div>
+          </div>
+          <div>
+            <div class="text-xs text-muted">Quantity</div>
+            <div class="num font-medium">{{ trade.total_quantity_entered or trade.quantity }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted">Charges</div>
+            <div class="num font-medium">₹{{ (trade.total_charges or trade.charges or 0)|indian_number }}</div>
+          </div>
+          <div class="col-span-2 md:col-span-2">
+            <div class="text-xs text-muted">Net P&amp;L</div>
+            {% set pnl = trade.net_pnl or trade.realized_pnl or 0 %}
+            {% if pnl >= 0 %}
+              <div class="num text-gain font-medium text-lg">+₹{{ pnl|indian_number }}</div>
+            {% else %}
+              <div class="num text-loss font-medium text-lg">−₹{{ pnl|abs|indian_number }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <div class="text-xs text-muted">Stop loss</div>
+            <div class="num">{% if trade.stop_loss %}₹{{ trade.stop_loss|indian_number }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted">Take profit</div>
+            <div class="num">{% if trade.take_profit %}₹{{ trade.take_profit|indian_number }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
+          </div>
+        </div>
+      </section>
+
+      {# Analysis #}
+      <section>
+        <h4 class="text-xs text-muted uppercase tracking-wider font-medium mb-3">Analysis</h4>
+        <dl class="kv-list">
+          <dt>Setup type</dt>     <dd>{{ trade.setup_type or '—' }}</dd>
+          <dt>Market conditions</dt><dd>{{ trade.market_conditions or '—' }}</dd>
+          <dt>Emotions</dt>        <dd>{{ trade.emotions or '—' }}</dd>
+          <dt>Trade grade</dt>
+          <dd>
+            {% if trade.trade_grade %}
+              {% set _gtone = 'gain' if trade.trade_grade in ['A','B'] else ('warn' if trade.trade_grade == 'C' else 'loss') %}
+              {{ badge(trade.trade_grade, tone=_gtone) }}
+            {% else %}—{% endif %}
+          </dd>
+          <dt>Confluence</dt>      <dd>{{ trade.confluence_score or '—' }}</dd>
+          <dt>Duration</dt>
+          <dd>
+            {% if trade.position_type == 'Intraday' and trade.duration_hours %}{{ trade.duration_hours|round(2) }}h
+            {% elif trade.position_type in ['Swing','Investment'] and trade.duration_days %}{{ trade.duration_days|int }}d
+            {% else %}—{% endif %}
+          </dd>
+        </dl>
+      </section>
+
+      {# Execution history #}
+      <section>
+        <h4 class="text-xs text-muted uppercase tracking-wider font-medium mb-3">Execution history</h4>
+        <div class="card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Date / Time</th>
+                  <th class="num">Price</th>
+                  <th class="num">Qty</th>
+                  <th class="num">Value</th>
+                  <th class="num">Charges</th>
+                  <th>Notes</th>
+                  <th>Screenshots</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if executions %}
+                  {% for ex in executions %}
+                    <tr>
+                      <td>{{ badge(ex.type|upper, tone='accent' if ex.type == 'entry' else 'warn') }}</td>
+                      <td class="font-num text-sm">{{ ex.date|indian_date }}{% if ex.time %} {{ ex.time }}{% endif %}</td>
+                      <td class="num">₹{{ ex.price|indian_number }}</td>
+                      <td class="num">{{ ex.quantity }}</td>
+                      <td class="num">₹{{ (ex.price * ex.quantity)|indian_number }}</td>
+                      <td class="num">₹{{ (ex.charges or 0)|indian_number }}</td>
+                      <td class="text-sm text-muted">{{ ex.notes or '—' }}</td>
+                      <td>
+                        {% set _shots = screenshots.get(ex.execution_id, []) %}
+                        {% with execution_id=ex.execution_id, screenshots=_shots, errors=[] %}
+                          {% include 'partials/screenshot_strip.html' %}
+                        {% endwith %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="8" class="text-center text-muted py-4">No executions found</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {% if trade.notes or trade.mistakes or trade.tags %}
+        <section>
+          <h4 class="text-xs text-muted uppercase tracking-wider font-medium mb-3">Notes &amp; tags</h4>
+          <div class="flex flex-col gap-3">
+            {% if trade.notes %}
+              <div>
+                <div class="text-xs text-muted mb-1">Notes</div>
+                <p class="text-sm">{{ trade.notes }}</p>
+              </div>
+            {% endif %}
+            {% if trade.mistakes %}
+              <div>
+                <div class="text-xs text-muted mb-1">Mistakes</div>
+                <p class="text-sm text-loss">{{ trade.mistakes }}</p>
+              </div>
+            {% endif %}
+            {% if trade.tags %}
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs text-muted">Tags</span>
+                {% for tag in trade.tags.split(',') %}{{ badge(tag.strip(), tone='muted') }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </section>
+      {% endif %}
+    </div>
+
+    <div class="modal-footer flex justify-end">
+      <button type="button" class="btn btn-ghost"
+              data-action="clear-modal-container">Close</button>
+    </div>
+  </div>
+</div>

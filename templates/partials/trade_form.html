@@ -1,0 +1,256 @@
+{% from 'components/alert.html' import alert %}
+{% from 'components/icon.html' import icon %}
+
+<form hx-post="/trades/add"
+      hx-target="#form-result"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      enctype="multipart/form-data"
+      class="flex flex-col gap-5">
+
+  {# Basic information #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">Basic information</h3>
+    </div>
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="field-group">
+        <label class="field-label">Date <span class="req">*</span></label>
+        <input type="text" name="date" class="input datepicker" required value="{{ today }}" placeholder="DD/MM/YYYY">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Time</label>
+        <input type="time" name="time" class="input">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Symbol <span class="req">*</span></label>
+        <input type="text" name="symbol" class="input" placeholder="e.g. AAPL, RELIANCE" required>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Market</label>
+        <select name="market" class="select" id="market-select">
+          <option value="">Select market…</option>
+          <option value="Index Futures">Index Futures</option>
+          <option value="Index Options">Index Options</option>
+          <option value="Equity">Equity</option>
+          <option value="Equity Futures">Equity Futures</option>
+          <option value="Equity Options">Equity Options</option>
+          <option value="Commodity Futures">Commodity Futures</option>
+          <option value="Commodity Options">Commodity Options</option>
+        </select>
+      </div>
+      <div class="field-group md:col-span-2" id="option-type-row" style="display:none;">
+        <label class="field-label">Option type <span class="req">*</span></label>
+        <select name="option_type" class="select" id="option-type-select">
+          <option value="">Select option type…</option>
+          <option value="Call">Call</option>
+          <option value="Put">Put</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body border-t border-[rgb(var(--border))] grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="field-group">
+        <label class="field-label">Direction <span class="req">*</span></label>
+        <select name="direction" class="select" required>
+          <option value="">Select…</option>
+          <option value="Long">Long</option>
+          <option value="Short">Short</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Quantity <span class="req">*</span></label>
+        <input type="number" name="quantity" class="input" step="0.01" min="0" required>
+      </div>
+      <div class="field-group">
+        <label class="field-label" data-tooltip="Enter 1 for no leverage. Enter 5 for 5× leverage (margin = position value ÷ 5).">Leverage</label>
+        <input type="number" name="leverage" class="input" step="0.1" min="1" value="1">
+        <div class="field-help">1 = none · 5 = 5×</div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Charges / fees</label>
+        <input type="number" name="charges" class="input" step="0.01" min="0" value="0">
+      </div>
+    </div>
+  </section>
+
+  {# Price information #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">Price</h3>
+    </div>
+    <div class="card-body grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="field-group">
+        <label class="field-label">Entry price <span class="req">*</span></label>
+        <input type="number" name="entry_price" class="input" id="entry-price" step="0.01" min="0" required>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Trade style</label>
+        <select name="trade_style" class="select" id="trade-style-select">
+          <option value="">Select…</option>
+          <option value="Intraday">Intraday</option>
+          <option value="Swing">Swing</option>
+          <option value="Investment">Investment</option>
+        </select>
+      </div>
+      <div class="field-group md:col-span-1"></div>
+      <div class="field-group">
+        <label class="field-label">Stop loss</label>
+        <input type="number" name="stop_loss" class="input" step="0.01" min="0">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Take profit</label>
+        <input type="number" name="take_profit" class="input" step="0.01" min="0">
+      </div>
+    </div>
+  </section>
+
+  {# Exit details #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">Exit details</h3>
+      <p class="card-desc">Optional — leave blank to keep the position open.</p>
+    </div>
+    <div class="card-body">
+      {% call alert(variant='info') %}
+        <ul class="list-disc pl-5 space-y-1 text-sm">
+          <li>Leave all exit fields blank → position stays open</li>
+          <li>Exit quantity = entry quantity → position closes</li>
+          <li>Exit quantity &lt; entry quantity → partial exit (remainder stays open)</li>
+          <li><strong>Intraday trades require exit details.</strong></li>
+        </ul>
+      {% endcall %}
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+        <div class="field-group">
+          <label class="field-label">Exit date <span class="req exit-required" style="display:none;">*</span></label>
+          <input type="text" name="exit_date" class="input datepicker" id="exit-date" placeholder="DD/MM/YYYY">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Exit time <span class="req exit-required" style="display:none;">*</span></label>
+          <input type="time" name="exit_time" class="input" id="exit-time">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Exit price <span class="req exit-required" style="display:none;">*</span></label>
+          <input type="number" name="exit_price" class="input" id="exit-price" step="0.01" min="0">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Exit quantity</label>
+          <input type="number" name="exit_quantity" class="input" id="exit-quantity" step="0.01" min="0" placeholder="Blank = full exit">
+          <div class="field-help">Max: <span id="max-exit-qty">—</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# Strategy & analysis #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">Strategy &amp; analysis</h3>
+    </div>
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="field-group">
+        <label class="field-label">Strategy</label>
+        <select name="strategy" class="select">
+          <option value="">Select strategy…</option>
+          {% for strategy in strategies %}
+            <option value="{{ strategy }}">{{ strategy }}</option>
+          {% endfor %}
+        </select>
+        <div class="field-help"><a href="/manage-strategies" target="_blank" class="link">Manage strategies</a></div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Setup type</label>
+        <input type="text" name="setup_type" class="input" placeholder="e.g. Breakout, Pullback">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Market conditions</label>
+        <select name="market_conditions" class="select">
+          <option value="">Select…</option>
+          <option value="Bullish Range">Bullish Range</option>
+          <option value="Bearish Range">Bearish Range</option>
+          <option value="Bullish Trending">Bullish Trending</option>
+          <option value="Bearish Trending">Bearish Trending</option>
+          <option value="Undecided">Undecided</option>
+          <option value="Volatile">Volatile</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Emotions</label>
+        <select name="emotions" class="select">
+          <option value="">Select…</option>
+          <option value="Confident">Confident</option>
+          <option value="Calm">Calm</option>
+          <option value="Anxious">Anxious</option>
+          <option value="Frustrated">Frustrated</option>
+          <option value="Excited">Excited</option>
+          <option value="Patient">Patient</option>
+          <option value="Focused">Focused</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Confluence score (1–5)</label>
+        <input type="number" name="confluence_score" class="input" min="1" max="5">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Trade grade</label>
+        <select name="trade_grade" class="select">
+          <option value="">Select…</option>
+          <option value="A">A — Excellent</option>
+          <option value="B">B — Good</option>
+          <option value="C">C — Average</option>
+          <option value="D">D — Poor</option>
+          <option value="F">F — Failed</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  {# Notes & tags #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">Notes &amp; tags</h3>
+    </div>
+    <div class="card-body flex flex-col gap-4">
+      <div class="field-group">
+        <label class="field-label">Trade notes</label>
+        <textarea name="notes" class="textarea" rows="3" placeholder="What happened in this trade? What did you observe?"></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Mistakes</label>
+        <textarea name="mistakes" class="textarea" rows="2" placeholder="What mistakes were made? What could be improved?"></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Tags</label>
+        <input type="text" name="tags" class="input" placeholder="earnings, gap-up, news-driven (comma separated)">
+      </div>
+    </div>
+  </section>
+
+  {# Screenshots #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title flex items-center gap-2">
+        {{ icon('image', size=16) }} Screenshots <span class="text-muted text-xs font-normal">(optional)</span>
+      </h3>
+    </div>
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="field-group">
+        <label class="field-label">Entry chart screenshots</label>
+        <input type="file" name="entry_screenshots" class="input" multiple accept="image/*">
+        <div class="field-help">JPG, PNG, WebP, GIF · max 10 MB each.</div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Exit chart screenshots</label>
+        <input type="file" name="exit_screenshots" class="input" multiple accept="image/*">
+        <div class="field-help">Only relevant if you filled exit details.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flex justify-end gap-2">
+    <button type="reset" class="btn btn-ghost">Reset</button>
+    <button type="submit" class="btn btn-primary">{{ icon('check', size=14) }} Save trade</button>
+  </div>
+</form>
+
+<div id="form-result" class="mt-4"></div>

@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+{% block title %}Settings · OneJournal{% endblock %}
+
+{% block content %}
+{% from 'components/icon.html' import icon %}
+{% from 'components/alert.html' import alert %}
+
+<header class="flex items-end justify-between gap-6 flex-wrap mb-6">
+  <div>
+    <h1>Settings</h1>
+    <p class="text-sm text-muted mt-1">Manage databases, import history and export your data.</p>
+  </div>
+</header>
+
+<div class="max-w-3xl mx-auto flex flex-col gap-4">
+
+  {# Database management #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">Database management</h3>
+      <p class="card-desc">Switch between journals, load a backup, or create a fresh one.</p>
+    </div>
+    <div class="card-body flex flex-col gap-6">
+
+      {% call alert(variant='info') %}
+        <strong>Current database:</strong>
+        <span class="font-mono ml-1">{{ settings.current_database }}</span>
+      {% endcall %}
+
+      {# Switch / load #}
+      <div>
+        <div class="text-xs text-muted uppercase tracking-wider mb-2">Switch or load database</div>
+        <p class="text-sm text-muted mb-3">Pick an existing database or browse to a <code class="font-mono">.db</code> file.</p>
+        <form id="switch-db-form" class="flex flex-col gap-3">
+          <div class="field-group">
+            <select name="db_name" class="select" id="db-select" required>
+              <option value="__browse__">Browse for database file…</option>
+              {% for db in settings.available_databases %}
+                <option value="{{ db }}" {{ 'selected' if db == settings.current_database }}>{{ db }}</option>
+              {% endfor %}
+            </select>
+            <input type="file" id="db-file-input" accept=".db" class="hidden">
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary btn-sm" id="switch-db-btn">
+              {{ icon('repeat', size=14) }} Switch database
+            </button>
+          </div>
+        </form>
+        <div id="switch-db-result" class="mt-3"></div>
+      </div>
+
+      <div class="border-t border-[rgb(var(--border))]"></div>
+
+      {# Create new #}
+      <div>
+        <div class="text-xs text-muted uppercase tracking-wider mb-2">Create new database</div>
+        <p class="text-sm text-muted mb-3">Create an empty journal with the full schema.</p>
+        <form id="create-db-form" class="flex flex-col gap-3">
+          <div class="field-group">
+            <input type="text" name="db_name" class="input"
+                   placeholder="e.g. swing-2026"
+                   required pattern="[a-zA-Z0-9_-]+"
+                   title="Letters, numbers, hyphens and underscores only">
+            <div class="field-help">Extension <code class="font-mono">.db</code> is added automatically.</div>
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary btn-sm">
+              {{ icon('plus', size=14) }} Create database
+            </button>
+          </div>
+        </form>
+        <div id="create-db-result" class="mt-3"></div>
+      </div>
+
+      <div class="border-t border-[rgb(var(--border))]"></div>
+
+      {# Backup #}
+      <div>
+        <div class="text-xs text-muted uppercase tracking-wider mb-2">Backup current database</div>
+        <p class="text-sm text-muted mb-3">
+          Copies the current database to <code class="font-mono">data/backups/</code> with a timestamped filename.
+        </p>
+        <button type="button" class="btn btn-outline btn-sm" id="backup-btn" data-action="backup-database">
+          {{ icon('save', size=14) }} Create backup now
+        </button>
+        <div id="backup-result" class="mt-3"></div>
+      </div>
+
+    </div>
+  </section>
+
+  {# Import #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">Import data</h3>
+      <p class="card-desc">Upload a CSV of completed trades.</p>
+    </div>
+    <div class="card-body flex flex-col gap-4">
+
+      {% call alert(variant='info', title='First-time setup order') %}
+        <ol class="list-decimal ml-5 mt-1 text-sm space-y-1">
+          <li>Import your CSV of historical completed trades first.</li>
+          <li>Go to <a href="/portfolio" class="link">Portfolio</a> and deposit your <strong>starting capital</strong>
+              (the amount you began trading with).</li>
+          <li>Date that deposit <em>before</em> your earliest trade (e.g. if first trade is 01/01/2024, deposit on 31/12/2023).</li>
+          <li>Add current open positions via <a href="/manual-entry" class="link">Manual entry</a>.</li>
+          <li>Your final cash = Starting capital + Historical P&amp;L − Open positions.</li>
+        </ol>
+      {% endcall %}
+
+      <form id="csv-upload-form" enctype="multipart/form-data" class="flex flex-col gap-3">
+        <div class="field-group">
+          <label class="field-label" for="csv-file-input">CSV file <span class="req">*</span></label>
+          <input type="file" name="csv_file" class="input" accept=".csv" required id="csv-file-input">
+          <div class="field-help">Maximum 10 MB.</div>
+        </div>
+
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" name="skip_duplicates" id="skip-duplicates"
+                 class="accent-[rgb(var(--accent))]" checked>
+          Skip duplicate trades
+        </label>
+
+        <div>
+          <button type="submit" class="btn btn-primary" id="upload-btn">
+            {{ icon('upload', size=14) }} Upload and import
+          </button>
+        </div>
+      </form>
+
+      <div id="import-result"></div>
+
+      {# CSV format guide - native disclosure #}
+      <details class="rounded-md border border-[rgb(var(--border))] bg-[rgb(var(--elev))]">
+        <summary class="cursor-pointer px-4 py-2 text-sm font-medium flex items-center gap-2 select-none">
+          {{ icon('help-circle', size=14) }} CSV format guide
+        </summary>
+        <div class="px-4 py-3 border-t border-[rgb(var(--border))] text-sm">
+          <p class="text-xs text-muted mb-3">
+            Headers are matched without regard to case or spaces: <code class="font-mono">Entry Price</code> reads as <code class="font-mono">entry_price</code>.
+          </p>
+          <div class="font-medium mb-1">Required columns</div>
+          <ul class="list-disc ml-5 space-y-0.5 text-muted mb-3">
+            <li><code class="font-mono">date</code> — entry date, YYYY-MM-DD or DD/MM/YYYY</li>
+            <li><code class="font-mono">symbol</code></li>
+            <li><code class="font-mono">direction</code> — Long or Short</li>
+            <li><code class="font-mono">entry_price</code>, <code class="font-mono">exit_price</code>, <code class="font-mono">quantity</code></li>
+          </ul>
+          <div class="font-medium mb-1">Recommended</div>
+          <ul class="list-disc ml-5 space-y-0.5 text-muted mb-3">
+            <li><code class="font-mono">exit_date</code> — same formats; defaults to the entry date if omitted</li>
+            <li><code class="font-mono">entry_time</code>/<code class="font-mono">time</code>, <code class="font-mono">exit_time</code> — HH:MM; give both for an exact holding time</li>
+            <li><code class="font-mono">trade_style</code> or <code class="font-mono">position_type</code> — Intraday/Swing/Investment (defaults to Swing)</li>
+          </ul>
+          <div class="font-medium mb-1">Other optional</div>
+          <ul class="list-disc ml-5 space-y-0.5 text-muted mb-3">
+            <li><code class="font-mono">market</code>, <code class="font-mono">charges</code>, <code class="font-mono">leverage</code></li>
+            <li><code class="font-mono">stop_loss</code>, <code class="font-mono">take_profit</code>, <code class="font-mono">risk_amount</code></li>
+            <li><code class="font-mono">strategy</code>, <code class="font-mono">setup_type</code>, <code class="font-mono">market_conditions</code></li>
+            <li><code class="font-mono">notes</code>, <code class="font-mono">tags</code>, <code class="font-mono">mistakes</code></li>
+          </ul>
+          <p class="text-xs text-muted mt-2">
+            Each row creates paired entry + exit executions. Holding time is counted from the dates, or from the entry and exit times when both are given.
+          </p>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  {# Export #}
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">Export data</h3>
+      <p class="card-desc">Download filtered trade data or a full performance report.</p>
+    </div>
+    <div class="card-body flex flex-col gap-4">
+
+      {# Filters #}
+      <div class="rounded-md border border-[rgb(var(--border))] p-4">
+        <div class="text-xs text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+          {{ icon('filter', size=12) }} Filters
+        </div>
+        <form id="export-filters-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="field-group">
+            <label class="field-label">Start date</label>
+            <input type="text" name="start_date" class="input datepicker" id="export-start-date" placeholder="DD/MM/YYYY">
+          </div>
+          <div class="field-group">
+            <label class="field-label">End date</label>
+            <input type="text" name="end_date" class="input datepicker" id="export-end-date" placeholder="DD/MM/YYYY">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Strategy</label>
+            <select name="strategy" class="select" id="export-strategy">
+              <option value="">All strategies</option>
+              {% for strategy in settings.get('strategies', []) %}
+                <option value="{{ strategy }}">{{ strategy }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Direction</label>
+            <select name="direction" class="select" id="export-direction">
+              <option value="">All</option>
+              <option value="Long">Long</option>
+              <option value="Short">Short</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Result</label>
+            <select name="result" class="select" id="export-result">
+              <option value="">All</option>
+              <option value="win">Winners only</option>
+              <option value="loss">Losers only</option>
+              <option value="breakeven">Breakeven only</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Symbol</label>
+            <input type="text" name="symbol" class="input" id="export-symbol" placeholder="e.g. AAPL">
+          </div>
+        </form>
+        <div class="mt-3">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="clear-export-filters">
+            {{ icon('x', size=12) }} Clear filters
+          </button>
+        </div>
+      </div>
+
+      {# Export tiles #}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="rounded-md border border-[rgb(var(--border))] p-4 flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            {{ icon('file-text', size=16, cls='text-gain') }}
+            <div class="font-medium">Trades · CSV</div>
+          </div>
+          <p class="text-xs text-muted">Spreadsheet-ready export of filtered trades.</p>
+          <button type="button" data-action="export-with-filters" data-format="csv" class="btn btn-outline btn-sm self-start">
+            {{ icon('download', size=12) }} Download CSV
+          </button>
+        </div>
+        <div class="rounded-md border border-[rgb(var(--border))] p-4 flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            {{ icon('code', size=16, cls='text-info') }}
+            <div class="font-medium">Trades · JSON</div>
+          </div>
+          <p class="text-xs text-muted">Programmatic export with all fields.</p>
+          <button type="button" data-action="export-with-filters" data-format="json" class="btn btn-outline btn-sm self-start">
+            {{ icon('download', size=12) }} Download JSON
+          </button>
+        </div>
+        <div class="rounded-md border border-[rgb(var(--border))] p-4 flex flex-col gap-2 md:col-span-2">
+          <div class="flex items-center gap-2">
+            {{ icon('bar-chart-2', size=16, cls='text-accent') }}
+            <div class="font-medium">Performance report · JSON</div>
+          </div>
+          <p class="text-xs text-muted">Full metrics bundle — win rate, profit factor, Sharpe, drawdown, streaks, distributions.</p>
+          <a href="/export/performance/json" class="btn btn-primary btn-sm self-start">
+            {{ icon('download', size=12) }} Download report
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+
+<script nonce="{{ csp_nonce }}">
+// CSV Upload
+document.getElementById('csv-upload-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const uploadBtn = document.getElementById('upload-btn');
+  const resultDiv = document.getElementById('import-result');
+
+  uploadBtn.disabled = true;
+  uploadBtn.innerHTML = 'Importing…';
+  resultDiv.innerHTML = '<div class="alert alert-info"><div class="alert-content">Processing CSV…</div></div>';
+
+  try {
+    const response = await fetch('/import/csv', { method: 'POST', body: formData });
+    const html = await response.text();
+    resultDiv.innerHTML = html;
+    if (response.ok && html.includes('alert-success')) e.target.reset();
+  } catch (error) {
+    resultDiv.innerHTML = `<div class="alert alert-danger"><div class="alert-content"><strong>Error:</strong> ${error.message}</div></div>`;
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = 'Upload and import';
+  }
+});
+
+// Export
+function exportWithFilters(format) {
+  let startDate = document.getElementById('export-start-date').value;
+  let endDate = document.getElementById('export-end-date').value;
+  const strategy = document.getElementById('export-strategy').value;
+  const direction = document.getElementById('export-direction').value;
+  const result = document.getElementById('export-result').value;
+  const symbol = document.getElementById('export-symbol').value;
+
+  const toISO = (s) => {
+    if (!s) return '';
+    const parts = s.split('/');
+    return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : s;
+  };
+
+  const params = new URLSearchParams();
+  if (startDate) params.append('start_date', toISO(startDate));
+  if (endDate)   params.append('end_date',   toISO(endDate));
+  if (strategy)  params.append('strategy',   strategy);
+  if (direction) params.append('direction',  direction);
+  if (result)    params.append('result',     result);
+  if (symbol)    params.append('symbol',     symbol);
+
+  window.location.href = `/export/trades/${format}?${params.toString()}`;
+}
+
+function clearExportFilters() {
+  ['export-start-date','export-end-date','export-strategy','export-direction','export-result','export-symbol']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+}
+
+// Database management
+const dbSelect = document.getElementById('db-select');
+const dbFileInput = document.getElementById('db-file-input');
+const switchDbForm = document.getElementById('switch-db-form');
+const switchResultDiv = document.getElementById('switch-db-result');
+
+dbSelect.addEventListener('change', function() {
+  if (this.value === '__browse__') dbFileInput.click();
+});
+
+dbFileInput.addEventListener('change', async function() {
+  if (!this.files.length) return;
+  const formData = new FormData();
+  formData.append('db_file', this.files[0]);
+  switchResultDiv.innerHTML = '<div class="alert alert-info"><div class="alert-content">Loading database…</div></div>';
+  try {
+    const r = await fetch('/api/database/upload', { method: 'POST', body: formData });
+    const data = await r.json();
+    if (data.success) {
+      switchResultDiv.innerHTML = `<div class="alert alert-success"><div class="alert-content">${data.message}</div></div>`;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      switchResultDiv.innerHTML = `<div class="alert alert-danger"><div class="alert-content">${data.message}</div></div>`;
+      dbSelect.value = '';
+    }
+  } catch (error) {
+    switchResultDiv.innerHTML = `<div class="alert alert-danger"><div class="alert-content">Error: ${error.message}</div></div>`;
+    dbSelect.value = '';
+  }
+});
+
+switchDbForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const selected = dbSelect.value;
+  if (selected === '__browse__') return;
+  const formData = new FormData();
+  formData.append('db_name', selected);
+  try {
+    const r = await fetch('/api/database/switch', { method: 'POST', body: formData });
+    const data = await r.json();
+    if (data.success) {
+      switchResultDiv.innerHTML = `<div class="alert alert-success"><div class="alert-content">${data.message}</div></div>`;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      switchResultDiv.innerHTML = `<div class="alert alert-danger"><div class="alert-content">${data.message}</div></div>`;
+    }
+  } catch (error) {
+    switchResultDiv.innerHTML = `<div class="alert alert-danger"><div class="alert-content">Error: ${error.message}</div></div>`;
+  }
+});
+
+document.getElementById('create-db-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const resultDiv = document.getElementById('create-db-result');
+  try {
+    const r = await fetch('/api/database/create', { method: 'POST', body: formData });
+    const data = await r.json();
+    if (data.success) {
+      resultDiv.innerHTML = `<div class="alert alert-success"><div class="alert-content">${data.message}</div></div>`;
+      e.target.reset();
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      resultDiv.innerHTML = `<div class="alert alert-danger"><div class="alert-content">${data.message}</div></div>`;
+    }
+  } catch (error) {
+    resultDiv.innerHTML = `<div class="alert alert-danger"><div class="alert-content">Error: ${error.message}</div></div>`;
+  }
+});
+
+async function backupDatabase() {
+  const btn = document.getElementById('backup-btn');
+  const resultDiv = document.getElementById('backup-result');
+  btn.disabled = true;
+  btn.innerHTML = 'Backing up…';
+  try {
+    const r = await fetch('/api/database/backup', { method: 'POST' });
+    const data = await r.json();
+    const tone = data.success ? 'alert-success' : 'alert-danger';
+    resultDiv.innerHTML = `<div class="alert ${tone}"><div class="alert-content">${data.message}</div></div>`;
+  } catch (error) {
+    resultDiv.innerHTML = `<div class="alert alert-danger"><div class="alert-content">Error: ${error.message}</div></div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Create backup now';
+  }
+}
+</script>
+{% endblock %}

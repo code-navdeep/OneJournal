@@ -1,0 +1,40 @@
+{# -----------------------------------------------------------------------------
+  Screenshot lightbox — opened via openLightbox(src, label) from app.js.
+  Uses the vanilla-JS modal pattern (no Bootstrap dep).
+  ----------------------------------------------------------------------------- #}
+{% from 'components/icon.html' import icon %}
+
+<div id="screenshotLightbox"
+     class="modal hidden"
+     role="dialog" aria-modal="true" aria-labelledby="lightbox-label"
+     data-action="modal-backdrop" data-modal="screenshotLightbox">
+  <div class="modal-panel modal-panel-xl" style="max-width: 1280px;">
+    <div class="modal-header" style="padding-block: 0.75rem;">
+      <small id="lightbox-label" class="text-xs text-muted font-mono uppercase tracking-wider"></small>
+      <div class="flex items-center gap-2">
+        <button class="btn btn-ghost btn-sm" data-action="lightbox-zoom" data-delta="-0.2" aria-label="Zoom out">
+          {{ icon('zoom-out', size=16) }}
+        </button>
+        <button class="btn btn-ghost btn-sm font-mono" data-action="lightbox-zoom" data-delta="0" aria-label="Reset zoom"
+                style="font-size: 0.7rem;">
+          1:1
+        </button>
+        <button class="btn btn-ghost btn-sm" data-action="lightbox-zoom" data-delta="0.2" aria-label="Zoom in">
+          {{ icon('zoom-in', size=16) }}
+        </button>
+        <button class="modal-close" data-action="close-modal" data-modal="screenshotLightbox" aria-label="Close">&times;</button>
+      </div>
+    </div>
+
+    <div id="lightbox-body"
+         class="modal-body text-center"
+         style="overflow: hidden; cursor: grab; min-height: 200px; max-height: 82vh;
+                display: flex; align-items: center; justify-content: center; padding: 0.5rem;">
+      <img id="lightbox-img" src="" alt="Screenshot"
+           style="max-width: 100%; max-height: 80vh;
+                  transform-origin: center center;
+                  transition: transform 0.1s ease;
+                  user-select: none; pointer-events: none;">
+    </div>
+  </div>
+</div>

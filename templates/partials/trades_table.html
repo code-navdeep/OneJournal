@@ -1,0 +1,163 @@
+{% from 'components/badge.html' import badge %}
+{% from 'components/icon.html' import icon %}
+{% from 'components/alert.html' import alert %}
+
+{% if trades|length > 0 %}
+  <div class="card overflow-hidden">
+    <div class="card-header flex items-center justify-between gap-4">
+      <div>
+        <h3 class="card-title">{{ trades|length }} trade{{ 's' if trades|length != 1 else '' }}</h3>
+        <p class="card-desc">Page {{ page or 1 }}{% if total_pages %} of {{ total_pages }}{% endif %}</p>
+      </div>
+      <div class="text-sm text-muted">
+        {% set total_pnl = trades|sum(attribute='net_pnl') %}
+        Total P&amp;L:
+        {% if total_pnl >= 0 %}
+          <span class="text-gain font-medium font-mono">+₹{{ total_pnl|indian_number }}</span>
+        {% else %}
+          <span class="text-loss font-medium font-mono">−₹{{ total_pnl|abs|indian_number }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Symbol</th>
+            <th>Strategy</th>
+            <th>Setup</th>
+            <th>Direction</th>
+            <th>Style</th>
+            <th class="num">Entry</th>
+            <th class="num">Exit</th>
+            <th class="num">Qty</th>
+            <th class="num">Leverage</th>
+            <th>Grade</th>
+            <th class="num">Conf.</th>
+            <th>Emotions</th>
+            <th>Duration</th>
+            <th>Tags</th>
+            <th class="num">P&amp;L</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trade in trades %}
+            <tr>
+              <td>
+                <div class="font-num text-sm">{{ trade.date|indian_date }}</div>
+                {% if trade.time %}<div class="text-xs text-muted">{{ trade.time }}</div>{% endif %}
+              </td>
+              <td>
+                <div class="font-medium">{{ trade.symbol }}</div>
+                {% if trade.market %}<div class="text-xs text-muted">{{ trade.market }}</div>{% endif %}
+              </td>
+              <td>
+                {% if trade.strategy %}{{ badge(trade.strategy, tone='info') }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="text-sm">{{ trade.setup_type or '—' }}</td>
+              <td>{{ badge(trade.direction, tone='gain' if trade.direction == 'Long' else 'loss') }}</td>
+              <td>
+                {% if trade.position_type %}
+                  {% set _tone = 'warn' if trade.position_type == 'Intraday' else ('info' if trade.position_type == 'Swing' else 'muted') %}
+                  {{ badge(trade.position_type, tone=_tone) }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="num">₹{{ trade.entry_price|indian_number }}</td>
+              <td class="num">
+                {% if trade.exit_price %}₹{{ trade.exit_price|indian_number }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="num">{{ trade.quantity }}</td>
+              <td class="num">{{ "%.1f"|format(trade.leverage or 1.0) }}×</td>
+              <td>
+                {% if trade.trade_grade %}
+                  {% set _gtone = 'gain' if trade.trade_grade in ['A','B'] else ('warn' if trade.trade_grade == 'C' else 'loss') %}
+                  {{ badge(trade.trade_grade, tone=_gtone) }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="num text-sm">{{ trade.confluence_score or '—' }}</td>
+              <td class="text-sm text-muted">{{ trade.emotions or '—' }}</td>
+              <td class="text-sm text-muted">
+                {% if trade.position_type == 'Intraday' and trade.duration_hours %}
+                  {{ trade.duration_hours|round(2) }}h
+                {% elif trade.position_type in ['Swing','Investment'] and trade.duration_days %}
+                  {{ trade.duration_days|int }}d
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-xs text-muted">{{ trade.tags or '—' }}</td>
+              <td class="num">
+                {% if trade.net_pnl >= 0 %}
+                  <span class="text-gain font-medium">+₹{{ trade.net_pnl|indian_number }}</span>
+                {% else %}
+                  <span class="text-loss font-medium">−₹{{ trade.net_pnl|abs|indian_number }}</span>
+                {% endif %}
+              </td>
+              <td class="text-right">
+                <div class="inline-flex gap-1">
+                  <button class="btn btn-ghost btn-sm"
+                          hx-get="/trades/{{ trade.trade_id }}/view"
+                          hx-target="#modal-container" hx-swap="innerHTML"
+                          aria-label="View">{{ icon('eye', size=14) }}</button>
+                  <button class="btn btn-ghost btn-sm"
+                          hx-get="/trades/{{ trade.trade_id }}/edit"
+                          hx-target="#modal-container" hx-swap="innerHTML"
+                          aria-label="Edit">{{ icon('pencil', size=14) }}</button>
+                  <button class="btn btn-ghost btn-sm text-loss"
+                          hx-delete="/trades/{{ trade.trade_id }}"
+                          hx-target="#trades-table-container" hx-swap="innerHTML"
+                          hx-confirm="Delete this entire position including all entry/exit transactions? This action cannot be undone."
+                          aria-label="Delete">{{ icon('trash', size=14) }}</button>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if total_pages and total_pages > 1 %}
+      <div class="card-footer flex items-center justify-between gap-4 flex-wrap">
+        <div class="text-xs text-muted">
+          Showing {{ trades|length }} of {{ total_trades or 0 }} trade{{ 's' if (total_trades or 0) != 1 else '' }}
+        </div>
+        <nav class="inline-flex items-center gap-1">
+          {% if page > 1 %}
+            <button class="btn btn-ghost btn-sm"
+                    hx-get="/api/trades/list?page={{ page - 1 }}"
+                    hx-target="#trades-table-container" hx-swap="innerHTML">
+              {{ icon('chevron-left', size=14) }} Prev
+            </button>
+          {% endif %}
+
+          {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+              <span class="btn btn-primary btn-sm">{{ p }}</span>
+            {% elif p <= 3 or p > total_pages - 3 or (p >= page - 1 and p <= page + 1) %}
+              <button class="btn btn-ghost btn-sm"
+                      hx-get="/api/trades/list?page={{ p }}"
+                      hx-target="#trades-table-container" hx-swap="innerHTML">{{ p }}</button>
+            {% elif p == 4 or p == total_pages - 3 %}
+              <span class="text-muted px-1">…</span>
+            {% endif %}
+          {% endfor %}
+
+          {% if page < total_pages %}
+            <button class="btn btn-ghost btn-sm"
+                    hx-get="/api/trades/list?page={{ page + 1 }}"
+                    hx-target="#trades-table-container" hx-swap="innerHTML">
+              Next {{ icon('chevron-right', size=14) }}
+            </button>
+          {% endif %}
+        </nav>
+      </div>
+    {% endif %}
+  </div>
+{% else %}
+  {% call alert(variant='info', title='No trades found') %}
+    Try adjusting your filters or <a href="/manual-entry" class="link">add a new trade</a>.
+  {% endcall %}
+{% endif %}

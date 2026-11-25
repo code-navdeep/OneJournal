@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}All trades · OneJournal{% endblock %}
+
+{% block content %}
+{% from 'components/icon.html' import icon %}
+
+<header class="flex items-end justify-between gap-6 flex-wrap mb-6">
+  <div>
+    <h1>All trades</h1>
+    <p class="text-sm text-muted mt-1">Search, filter and manage every trade on record.</p>
+  </div>
+  <div class="inline-flex gap-2">
+    <a href="/export/trades/csv" class="btn btn-outline">{{ icon('download', size=14) }} CSV</a>
+    <a href="/export/trades/json" class="btn btn-outline">{{ icon('download', size=14) }} JSON</a>
+  </div>
+</header>
+
+{# Search & filters #}
+<section class="card mb-4">
+  <div class="card-header">
+    <h3 class="card-title">Filters</h3>
+    <p class="card-desc">Results update as you type.</p>
+  </div>
+  <div class="card-body">
+    <form hx-get="/api/trades/search"
+          hx-trigger="keyup changed delay:500ms from:input, change from:select, change from:input"
+          hx-target="#trades-table-container"
+          hx-swap="innerHTML"
+          class="flex flex-col gap-4">
+
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs text-muted uppercase tracking-wider mr-2">Quick range</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="set-date-range" data-range="this_month">This month</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="set-date-range" data-range="last_month">Last month</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="set-date-range" data-range="this_year">This year</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="set-date-range" data-range="last_year">Last year</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="clear-date-range">{{ icon('x', size=12) }} Clear</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div class="field-group">
+          <label class="field-label">From date</label>
+          <input type="text" name="from_date" id="from-date" class="input" placeholder="Start">
+        </div>
+        <div class="field-group">
+          <label class="field-label">To date</label>
+          <input type="text" name="to_date" id="to-date" class="input" placeholder="End">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Symbol</label>
+          <input type="text" name="symbol" class="input" placeholder="e.g. AAPL">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Strategy</label>
+          <select name="strategy" class="select">
+            <option value="">All strategies</option>
+            {% for strategy in strategies %}
+              <option value="{{ strategy }}">{{ strategy }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Tags</label>
+          <input type="text" name="tags" class="input" placeholder="e.g. breakout">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Direction</label>
+          <select name="direction" class="select">
+            <option value="">All</option>
+            <option value="Long">Long</option>
+            <option value="Short">Short</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Trade style</label>
+          <select name="trade_style" class="select">
+            <option value="">All styles</option>
+            <option value="Intraday">Intraday</option>
+            <option value="Swing">Swing</option>
+            <option value="Investment">Investment</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Result</label>
+          <select name="result" class="select">
+            <option value="">All</option>
+            <option value="win">Winners only</option>
+            <option value="loss">Losers only</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Sort by</label>
+          <select name="sort" class="select">
+            <option value="date_desc">Date (newest)</option>
+            <option value="date_asc">Date (oldest)</option>
+            <option value="pnl_desc">P&amp;L (high → low)</option>
+            <option value="pnl_asc">P&amp;L (low → high)</option>
+          </select>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+{# Trades table #}
+<div id="trades-table-container"
+     hx-get="/api/trades/list"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+  <div class="card">
+    <div class="card-body text-center text-muted py-10">
+      <div class="inline-flex items-center gap-2">
+        {{ icon('refresh-cw', size=14, cls='animate-spin') }} Loading trades…
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Modal container for view/edit #}
+<div id="modal-container"></div>
+
+<script nonce="{{ csp_nonce }}">
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof flatpickr !== 'function') return;
+    const fromPicker = flatpickr('#from-date', {
+      dateFormat: 'Y-m-d',
+      maxDate: 'today',
+      onChange: function(_, dateStr) {
+        if (window.toDatePicker && dateStr) window.toDatePicker.set('minDate', dateStr);
+      }
+    });
+    const toPicker = flatpickr('#to-date', { dateFormat: 'Y-m-d', maxDate: 'today' });
+    window.fromDatePicker = fromPicker;
+    window.toDatePicker = toPicker;
+  });
+
+  function setDateRange(range) {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    let from, to;
+    switch (range) {
+      case 'this_month': from = new Date(y, m, 1);     to = today; break;
+      case 'last_month': from = new Date(y, m - 1, 1); to = new Date(y, m, 0); break;
+      case 'this_year':  from = new Date(y, 0, 1);     to = today; break;
+      case 'last_year':  from = new Date(y - 1, 0, 1); to = new Date(y - 1, 11, 31); break;
+    }
+    if (from && to) {
+      window.fromDatePicker.setDate(from);
+      window.toDatePicker.setDate(to);
+      document.getElementById('from-date').dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  function clearDateRange() {
+    if (window.fromDatePicker) window.fromDatePicker.clear();
+    if (window.toDatePicker)   window.toDatePicker.clear();
+    document.getElementById('from-date').dispatchEvent(new Event('change', { bubbles: true }));
+  }
+</script>
+{% endblock %}

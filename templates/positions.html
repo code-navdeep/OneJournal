@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Positions · OneJournal{% endblock %}
+
+{% block content %}
+{% from 'components/panel.html' import panel %}
+{% from 'components/badge.html' import badge %}
+{% from 'components/icon.html' import icon %}
+{% from 'components/alert.html' import alert %}
+{% from 'components/modal.html' import modal %}
+
+<header class="flex items-end justify-between gap-6 flex-wrap mb-6">
+  <div>
+    <h1>Positions</h1>
+    <p class="text-sm text-muted mt-1">Track your open and closed positions.</p>
+  </div>
+</header>
+
+<div class="tabs mb-4" role="tablist">
+  <button class="tab active" data-tab="open" role="tab" aria-selected="true">
+    Open <span class="ml-1 text-muted">({{ open_count }})</span>
+  </button>
+  <button class="tab" data-tab="closed" role="tab" aria-selected="false">
+    Closed <span class="ml-1 text-muted">({{ closed_count }})</span>
+  </button>
+</div>
+
+<section id="pane-open">
+  {% if open_positions %}
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Position</th>
+              <th>Direction</th>
+              <th class="num">Leverage</th>
+              <th class="num">Qty</th>
+              <th class="num">Avg Entry</th>
+              <th class="num">Current Price</th>
+              <th class="num">Entry Value</th>
+              <th class="num">Current Value</th>
+              <th class="num">Unrealized P&amp;L</th>
+              <th class="num">P&amp;L %</th>
+              <th>Opened</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for position in open_positions %}
+            <tr>
+              <td>
+                <div class="font-medium">{{ position['symbol'] }}</div>
+                <div class="text-xs text-muted">
+                  {{ position['market'] or 'Equity' }}
+                  {% if position['option_type'] %}· {{ position['strike_price'] }} {{ position['option_type'] }}{% endif %}
+                </div>
+              </td>
+              <td>
+                {{ badge(position['direction'], tone='gain' if position['direction'] == 'Long' else 'loss') }}
+                <div class="text-xs text-muted mt-1">{{ position['position_type'] or 'Swing' }}</div>
+              </td>
+              <td class="num">{{ "%.1f"|format(position['avg_leverage']) }}×</td>
+              <td class="num">{{ position['current_quantity'] }}</td>
+              <td class="num">₹{{ position['average_entry_price']|indian_number }}</td>
+              <td class="num">
+                <input type="number"
+                       class="input text-right update-price"
+                       style="width: 110px; padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                       data-position-id="{{ position['position_id'] }}"
+                       value="{{ position['current_market_price'] or '' }}"
+                       placeholder="—"
+                       step="0.01">
+              </td>
+              <td class="num">₹{{ position['held_cost']|indian_number }}</td>
+              <td class="num" id="current-value-{{ position['position_id'] }}">
+                {% if position['current_market_price'] %}
+                  ₹{{ (position['current_market_price'] * position['current_quantity'])|indian_number }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="num
+                {%- if position['unrealized_pnl'] and position['unrealized_pnl'] > 0 %} text-gain{% endif %}
+                {%- if position['unrealized_pnl'] and position['unrealized_pnl'] < 0 %} text-loss{% endif %}"
+                  id="unrealized-pnl-{{ position['position_id'] }}">
+                {% if position['unrealized_pnl'] %}
+                  ₹{{ position['unrealized_pnl']|indian_number }}
+                  {% if position['price_updated_at'] %}<div class="text-xs text-muted mt-0.5">{{ position['price_updated_at']|time_ago }}</div>{% endif %}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="num
+                {%- if position['unrealized_pnl'] and position['unrealized_pnl'] > 0 %} text-gain{% endif %}
+                {%- if position['unrealized_pnl'] and position['unrealized_pnl'] < 0 %} text-loss{% endif %}"
+                  id="pnl-percent-{{ position['position_id'] }}">
+                {% if position['unrealized_pnl'] and position['held_cost'] %}
+                  {{ ((position['unrealized_pnl'] / position['held_cost']) * 100)|round(2) }}%
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td>{{ position['opened_date'] }}</td>
+              <td class="text-right">
+                <div class="inline-flex gap-1">
+                  <button class="btn btn-ghost btn-sm" aria-label="View" data-action="view-position" data-position-id="{{ position['position_id'] }}">{{ icon('eye', size=14) }}</button>
+                  <button class="btn btn-ghost btn-sm" aria-label="Manage" data-action="manage-position" data-position-id="{{ position['position_id'] }}">{{ icon('pencil', size=14) }}</button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    {% call alert(variant='info', title='No open positions') %}
+      <a href="/manual-entry" class="link">Add a trade</a> to create a position.
+    {% endcall %}
+  {% endif %}
+</section>
+
+<section id="pane-closed" class="hidden">
+  {% if closed_positions %}
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Position</th>
+              <th>Direction</th>
+              <th class="num">Leverage</th>
+              <th class="num">Qty</th>
+              <th class="num">Avg Entry</th>
+              <th class="num">Avg Exit</th>
+              <th class="num">Realized P&amp;L</th>
+              <th class="num">P&amp;L %</th>
+              <th>Opened</th>
+              <th>Closed</th>
+              <th>Duration</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for position in closed_positions %}
+            <tr>
+              <td>
+                <div class="font-medium">{{ position['symbol'] }}</div>
+                <div class="text-xs text-muted">{{ position['market'] or 'Equity' }}</div>
+              </td>
+              <td>
+                {{ badge(position['direction'], tone='gain' if position['direction'] == 'Long' else 'loss') }}
+                <div class="text-xs text-muted mt-1">{{ position['position_type'] or 'Swing' }}</div>
+              </td>
+              <td class="num">{{ "%.1f"|format(position['avg_leverage']) }}×</td>
+              <td class="num">{{ position['total_quantity_entered'] }}</td>
+              <td class="num">₹{{ position['average_entry_price']|indian_number }}</td>
+              <td class="num">
+                {% if position['total_quantity_exited'] > 0 %}
+                  ₹{{ (position['total_exit_value'] / position['total_quantity_exited'])|indian_number }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="num {% if position['realized_pnl'] > 0 %}text-gain{% elif position['realized_pnl'] < 0 %}text-loss{% endif %}">
+                ₹{{ position['realized_pnl']|indian_number }}
+              </td>
+              <td class="num {% if position['realized_pnl'] > 0 %}text-gain{% elif position['realized_pnl'] < 0 %}text-loss{% endif %}">
+                {% if position['total_entry_value'] > 0 %}
+                  {{ ((position['realized_pnl'] / position['total_entry_value']) * 100)|round(2) }}%
+                {% else %}0.00%{% endif %}
+              </td>
+              <td>{{ position['opened_date'] }}</td>
+              <td>{{ position['closed_date'] or '—' }}</td>
+              <td>
+                {% if position['position_type'] == 'Intraday' %}
+                  {% if position['duration_hours'] is not none %}{{ position['duration_hours']|round(2) }}h{% else %}—{% endif %}
+                {% else %}
+                  {% if position['duration_days'] is not none %}{{ position['duration_days'] }}d{% else %}—{% endif %}
+                {% endif %}
+              </td>
+              <td class="text-right">
+                <button class="btn btn-ghost btn-sm" aria-label="View" data-action="view-position" data-position-id="{{ position['position_id'] }}">{{ icon('eye', size=14) }}</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    {% call alert(variant='info', title='No closed positions yet') %}
+      Positions you close will appear here.
+    {% endcall %}
+  {% endif %}
+</section>
+
+{# View Position modal #}
+{% call modal(id='viewPositionModal', title='Position details', size='xl') %}
+  <div id="position-details-content" class="text-sm text-muted">Loading…</div>
+{% endcall %}
+
+{# Manage Position modal #}
+{% call modal(id='managePositionModal', title='Manage position', size='lg') %}
+  <div id="manage-position-content" class="text-sm text-muted">Loading…</div>
+{% endcall %}
+
+<script nonce="{{ csp_nonce }}">
+  // Tab switching
+  document.querySelectorAll('.tab[data-tab]').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab[data-tab]').forEach(x => {
+        x.classList.remove('active');
+        x.setAttribute('aria-selected', 'false');
+      });
+      t.classList.add('active');
+      t.setAttribute('aria-selected', 'true');
+      document.getElementById('pane-open').classList.toggle('hidden', t.dataset.tab !== 'open');
+      document.getElementById('pane-closed').classList.toggle('hidden', t.dataset.tab !== 'closed');
+    });
+  });
+
+  // Inline price update
+  document.querySelectorAll('.update-price').forEach(input => {
+    input.addEventListener('change', function() {
+      const positionId = this.dataset.positionId;
+      const price = parseFloat(this.value);
+      if (price > 0) {
+        htmx.ajax('POST', '/positions/update-price', {
+          values: { position_id: positionId, market_price: price },
+          target: `#unrealized-pnl-${positionId}`,
+          swap: 'outerHTML'
+        }).then(() => location.reload());
+      }
+    });
+  });
+
+  function viewPosition(positionId) {
+    htmx.ajax('GET', `/positions/${positionId}/details`, {
+      target: '#position-details-content', swap: 'innerHTML'
+    });
+    openModal('viewPositionModal');
+  }
+
+  function managePosition(positionId) {
+    htmx.ajax('GET', `/positions/${positionId}/manage-form`, {
+      target: '#manage-position-content', swap: 'innerHTML'
+    });
+    openModal('managePositionModal');
+  }
+
+  function showPositionTypeEditor(positionId) {
+    document.getElementById(`position-type-display-${positionId}`).style.display = 'none';
+    document.getElementById(`position-type-editor-${positionId}`).style.display = 'flex';
+  }
+  function cancelPositionTypeEdit(positionId) {
+    document.getElementById(`position-type-display-${positionId}`).style.display = 'inline';
+    document.getElementById(`position-type-editor-${positionId}`).style.display = 'none';
+  }
+  function updatePositionType(positionId) {
+    const newType = document.getElementById(`position-type-select-${positionId}`).value;
+    htmx.ajax('POST', '/positions/update-type', {
+      values: { position_id: positionId, position_type: newType }, swap: 'none'
+    }).then(() => {
+      document.getElementById(`position-type-display-${positionId}`).textContent = newType;
+      cancelPositionTypeEdit(positionId);
+    });
+  }
+</script>
+{% endblock %}

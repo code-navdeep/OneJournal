@@ -1,0 +1,37 @@
+{% from 'components/icon.html' import icon %}
+
+<div class="screenshot-strip" id="screenshots-{{ execution_id }}">
+  {% for s in screenshots %}
+    <div class="screenshot-thumb-wrapper" id="screenshot-{{ s.screenshot_id }}">
+      <img src="/screenshots/{{ s.filename }}"
+           class="screenshot-thumb"
+           title="{{ s.original_name or s.filename }}"
+           data-action="open-lightbox" data-src="/screenshots/{{ s.filename }}" data-label="{{ s.original_name or s.filename }}"
+           alt="{{ s.original_name or 'Screenshot' }}">
+      <button class="screenshot-delete-btn"
+              hx-delete="/screenshots/{{ s.screenshot_id }}"
+              hx-target="#screenshot-{{ s.screenshot_id }}"
+              hx-swap="outerHTML"
+              hx-confirm="Delete this screenshot?"
+              title="Delete screenshot">×</button>
+    </div>
+  {% endfor %}
+
+  <label class="screenshot-upload-btn" title="Add screenshots">
+    {{ icon('plus', size=14) }}
+    <input type="file"
+           name="screenshots"
+           multiple
+           accept="image/*"
+           style="display:none"
+           hx-post="/executions/{{ execution_id }}/screenshots"
+           hx-target="#screenshots-{{ execution_id }}"
+           hx-swap="outerHTML"
+           hx-trigger="change"
+           hx-encoding="multipart/form-data">
+  </label>
+
+  {% for error in errors %}
+    <small class="text-loss block mt-1">{{ error }}</small>
+  {% endfor %}
+</div>

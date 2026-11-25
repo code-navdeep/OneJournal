@@ -1,0 +1,37 @@
+{# -----------------------------------------------------------------------------
+  Button macro — shadcn-style
+  Variants: default | primary | accent | ghost | outline | danger
+  Sizes:    sm | md (default) | lg
+  ----------------------------------------------------------------------------- #}
+
+{% macro btn(label, variant='default', size='md', type='button', href=None, cls='', attrs='', icon=None) -%}
+  {% set classes = 'btn' %}
+  {% if variant == 'primary' %}{% set classes = classes ~ ' btn-primary' %}{% endif %}
+  {% if variant == 'accent'  %}{% set classes = classes ~ ' btn-accent'  %}{% endif %}
+  {% if variant == 'ghost'   %}{% set classes = classes ~ ' btn-ghost'   %}{% endif %}
+  {% if variant == 'outline' %}{% set classes = classes ~ ' btn-outline' %}{% endif %}
+  {% if variant == 'danger'  %}{% set classes = classes ~ ' btn-danger'  %}{% endif %}
+  {% if size == 'sm' %}{% set classes = classes ~ ' btn-sm' %}{% endif %}
+  {% if size == 'lg' %}{% set classes = classes ~ ' btn-lg' %}{% endif %}
+  {% if cls %}{% set classes = classes ~ ' ' ~ cls %}{% endif %}
+  {% if href %}
+    <a href="{{ href }}" class="{{ classes }}" {{ attrs | safe }}>{% if icon %}{{ icon | safe }}{% endif %}{{ label | safe }}</a>
+  {% else %}
+    <button type="{{ type }}" class="{{ classes }}" {{ attrs | safe }}>{% if icon %}{{ icon | safe }}{% endif %}{{ label | safe }}</button>
+  {% endif %}
+{%- endmacro %}
+
+{# Icon-only button (square) #}
+{% macro btn_icon(icon_svg, variant='ghost', type='button', href=None, cls='', attrs='', label='') -%}
+  {% set classes = 'btn btn-icon' %}
+  {% if variant == 'primary' %}{% set classes = classes ~ ' btn-primary' %}{% endif %}
+  {% if variant == 'ghost'   %}{% set classes = classes ~ ' btn-ghost'   %}{% endif %}
+  {% if variant == 'outline' %}{% set classes = classes ~ ' btn-outline' %}{% endif %}
+  {% if variant == 'danger'  %}{% set classes = classes ~ ' btn-danger'  %}{% endif %}
+  {% if cls %}{% set classes = classes ~ ' ' ~ cls %}{% endif %}
+  {% if href %}
+    <a href="{{ href }}" class="{{ classes }}" aria-label="{{ label }}" {{ attrs | safe }}>{{ icon_svg | safe }}</a>
+  {% else %}
+    <button type="{{ type }}" class="{{ classes }}" aria-label="{{ label }}" {{ attrs | safe }}>{{ icon_svg | safe }}</button>
+  {% endif %}
+{%- endmacro %}

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Strategies · OneJournal{% endblock %}
+
+{% block content %}
+{% from 'components/icon.html' import icon %}
+
+<header class="flex items-end justify-between gap-6 flex-wrap mb-6">
+  <div>
+    <h1>Strategies</h1>
+    <p class="text-sm text-muted mt-1">Define and curate the strategies you tag trades with.</p>
+  </div>
+  <button type="button" class="btn btn-primary"
+          hx-get="/strategies/modal/add"
+          hx-target="#modal-container"
+          hx-swap="innerHTML">
+    {{ icon('plus', size=14) }} Add strategy
+  </button>
+</header>
+
+<div id="strategies-list"
+     hx-get="/strategies/list"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+  <div class="card">
+    <div class="card-body text-center text-muted py-10">
+      <div class="inline-flex items-center gap-2">
+        {{ icon('refresh-cw', size=14, cls='animate-spin') }} Loading strategies…
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-container"></div>
+{% endblock %}

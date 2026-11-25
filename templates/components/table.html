@@ -1,0 +1,32 @@
+{# -----------------------------------------------------------------------------
+  Table helper macros
+  Usage:
+    {% from 'components/table.html' import th, td, td_num %}
+    <table class="data-table">
+      <thead><tr>
+        {{ th('Symbol') }}
+        {{ th('Entry', cls='num') }}
+      </tr></thead>
+      <tbody>
+        <tr>
+          {{ td('RELIANCE') }}
+          {{ td_num(1234.50) }}
+        </tr>
+      </tbody>
+    </table>
+  ----------------------------------------------------------------------------- #}
+
+{% macro th(label, cls='', attrs='') -%}
+  <th class="{{ cls }}" {{ attrs | safe }}>{{ label | safe }}</th>
+{%- endmacro %}
+
+{% macro td(content, cls='', attrs='') -%}
+  <td class="{{ cls }}" {{ attrs | safe }}>{{ content | safe }}</td>
+{%- endmacro %}
+
+{% macro td_num(value, digits=2, cls='', attrs='') -%}
+  <td class="num {{ cls }}" {{ attrs | safe }}>
+    {%- if value is none -%}<span class="text-muted">—</span>
+    {%- else -%}{{ ('{:,.' ~ digits ~ 'f}').format(value) }}{%- endif -%}
+  </td>
+{%- endmacro %}
